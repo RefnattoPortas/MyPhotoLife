@@ -1,0 +1,88 @@
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import jwt from '@fastify/jwt';
+import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
+import { env, connectDatabase } from './config/index.js';
+import tenantPlugin from './plugins/tenant.js';
+import authPlugin from './plugins/auth.js';
+import authRoutes from './routes/auth.js';
+import albumRoutes from './routes/albums.js';
+import mediaRoutes from './routes/media.js';
+import orderRoutes from './routes/orders.js';
+import portfolioRoutes from './routes/portfolio.js';
+import tenantRoutes from './routes/tenant.js';
+
+async function buildApp() {
+  const app = Fastify({
+    logger: env.nodeEnv !== 'test',
+    trustProxy: true,
+  });
+
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+  });
+
+  await app.register(cors, {
+    origin: env.cors.origin,
+    credentials: true,
+  });
+
+  await app.register(jwt, {
+    secret: env.jwt.secret,
+    sign: { expiresIn: env.jwt.expiresIn },
+  });
+
+  await app.register(multipart, {
+    limits: {
+      fileSize: 500 * 1024 * 1024,
+    },
+  });
+
+  await app.register(tenantPlugin);
+  await app.register(authPlugin);
+
+  await app.register(authRoutes, { prefix: '/api/auth' });
+  await app.register(albumRoutes, { prefix: '/api/albums' });
+  await app.register(mediaRoutes, { prefix: '/api/media' });
+  await app.register(orderRoutes, { prefix: '/api/orders' });
+  await app.register(portfolioRoutes, { prefix: '/api/portfolio' });
+  await app.register(tenantRoutes, { prefix: '/api/tenant' });
+
+  app.get('/api/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  app.setErrorHandler((error, request, reply) => {
+    const statusCode = error.statusCode || 500;
+    const code = error.code || 'INTERNAL_ERROR';
+    const message = statusCode === 500 ? error.message : error.message;
+
+    if (statusCode === 500) {
+      console.error('[ERROR]', error);
+    }
+
+    reply.status(statusCode).send({
+      error: true,
+      statusCode,
+      code,
+      message,
+    });
+  });
+
+  return app;
+}
+
+async function start() {
+  await connectDatabase();
+  const app = await buildApp();
+
+  try {
+    await app.listen({ port: env.port, host: env.host });
+    console.log(`[Server] Running at http://${env.host}:${env.port}`);
+  } catch (err) {
+    app.log.error(err);
+    process.exit(1);
+  }
+}
+
+start();
