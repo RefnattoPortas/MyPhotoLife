@@ -14,6 +14,9 @@ export default async function portfolioRoutes(fastify) {
     if (tenants.length === 0) throw notFound('Photographer not found');
 
     const tenant = tenants[0];
+    if (tenant.theme_config && typeof tenant.theme_config === 'string') {
+      tenant.theme_config = JSON.parse(tenant.theme_config);
+    }
 
     const [albums] = await pool.execute(
       `SELECT a.id, a.title, a.description, a.price, a.is_for_sale,
@@ -52,10 +55,15 @@ export default async function portfolioRoutes(fastify) {
     const pool = getPool();
 
     const [tenants] = await pool.execute(
-      'SELECT id, name FROM tenants WHERE slug = ? AND is_active = TRUE LIMIT 1',
+      'SELECT id, name, theme_config FROM tenants WHERE slug = ? AND is_active = TRUE LIMIT 1',
       [slug],
     );
     if (tenants.length === 0) throw notFound('Photographer not found');
+
+    const tenantRow = tenants[0];
+    if (tenantRow.theme_config && typeof tenantRow.theme_config === 'string') {
+      tenantRow.theme_config = JSON.parse(tenantRow.theme_config);
+    }
 
     const [albums] = await pool.execute(
       'SELECT * FROM albums WHERE id = ? AND tenant_id = ? AND is_public = TRUE LIMIT 1',
@@ -72,6 +80,6 @@ export default async function portfolioRoutes(fastify) {
       [id],
     );
 
-    return { album: albums[0], media };
+    return { album: albums[0], media, theme: tenantRow.theme_config };
   });
 }

@@ -32,10 +32,10 @@ export default async function tenantRoutes(fastify) {
     return { stats: { albumCount, mediaCount, orderCount, revenue: parseFloat(revenue) } };
   });
 
-  // PATCH /profile — Atualizar perfil (bio, pix, nome…)
+  // PATCH /profile — Atualizar perfil (bio, pix, nome, tema…)
   fastify.patch('/profile', async (request, reply) => {
     const tenantId = request.tenantId;
-    const { name, bio, pix_key, pix_key_type } = request.body || {};
+    const { name, bio, pix_key, pix_key_type, theme_config } = request.body || {};
     const pool = getPool();
 
     const updates = [];
@@ -45,6 +45,7 @@ export default async function tenantRoutes(fastify) {
     if (bio !== undefined) { updates.push('bio = ?'); params.push(bio); }
     if (pix_key !== undefined) { updates.push('pix_key = ?'); params.push(pix_key); }
     if (pix_key_type !== undefined) { updates.push('pix_key_type = ?'); params.push(pix_key_type); }
+    if (theme_config !== undefined) { updates.push('theme_config = ?'); params.push(JSON.stringify(theme_config)); }
 
     if (updates.length > 0) {
       params.push(tenantId);
@@ -63,10 +64,14 @@ export default async function tenantRoutes(fastify) {
     const pool = getPool();
 
     const [rows] = await pool.execute(
-      'SELECT id, name, email, slug, bio, pix_key, pix_key_type, storage_quota, storage_used, created_at FROM tenants WHERE id = ? LIMIT 1',
+      'SELECT id, name, email, slug, bio, pix_key, pix_key_type, theme_config, storage_quota, storage_used, created_at FROM tenants WHERE id = ? LIMIT 1',
       [tenantId],
     );
 
-    return { tenant: rows[0] || null };
+    const tenant = rows[0] || null;
+    if (tenant?.theme_config && typeof tenant.theme_config === 'string') {
+      tenant.theme_config = JSON.parse(tenant.theme_config);
+    }
+    return { tenant };
   });
 }

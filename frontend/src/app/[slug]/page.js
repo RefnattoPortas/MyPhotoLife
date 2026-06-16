@@ -67,6 +67,27 @@ export default function PortfolioPage({ params }) {
       .finally(() => setLoading(false));
   }, [slug]);
 
+  useEffect(() => {
+    if (!data?.photographer?.theme) return;
+    const theme = data.photographer.theme;
+    const root = document.documentElement;
+    if (theme.bg_color) root.style.setProperty('--color-bg', theme.bg_color);
+    if (theme.hover_color) root.style.setProperty('--color-hover', theme.hover_color);
+    if (theme.font && theme.font !== 'Inter') {
+      root.style.setProperty('--font-family', `'${theme.font}', system-ui, sans-serif`);
+      const id = `gf-${theme.font.replace(/\s+/g, '-')}`;
+      if (!document.getElementById(id)) {
+        const link = document.createElement('link');
+        link.id = id;
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?family=${theme.font.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap`;
+        document.head.appendChild(link);
+      }
+    } else if (theme.font === 'Inter') {
+      root.style.setProperty('--font-family', `'Inter', system-ui, sans-serif`);
+    }
+  }, [data]);
+
   const addToCart = (item) => {
     setCart((prev) => {
       if (prev.find((i) => i.id === item.id)) return prev;
@@ -156,10 +177,10 @@ export default function PortfolioPage({ params }) {
         <div className="absolute inset-0 bg-gradient-to-b from-stone-100/60 to-stone-50" />
         <div className="absolute inset-0 bg-[radial-gradient(#d6d3d1_1px,transparent_1px)] [background-size:20px_20px] opacity-40" />
         <div className="relative max-w-4xl mx-auto px-6 text-center">
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-stone-100 border-4 border-white shadow-lg mb-6 overflow-hidden animate-fade-in">
+          <div className="inline-flex items-center justify-center w-20 sm:w-24 h-20 sm:h-24 rounded-full bg-stone-100 border-4 border-white shadow-lg mb-6 overflow-hidden animate-fade-in">
              <img src="https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&w=200&auto=format&fit=crop" className="w-full h-full object-cover" alt={photographer.name}/>
           </div>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-stone-900 leading-[1.08] animate-fade-up">
+          <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-stone-900 leading-[1.08] animate-fade-up">
             {photographer.name}
           </h1>
           {photographer.bio ? (
@@ -271,7 +292,7 @@ export default function PortfolioPage({ params }) {
         {/* TAB: ABOUT ME */}
         {activeTab === 'about' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto mt-6">
-             <div className="bg-white p-8 md:p-12 rounded-3xl border border-stone-200 shadow-sm">
+             <div className="bg-white p-6 md:p-12 rounded-3xl border border-stone-200 shadow-sm">
                 <h2 className="text-3xl font-bold tracking-tight mb-6">Sobre {photographer.name}</h2>
                 <div className="space-y-4 text-stone-600 leading-relaxed text-lg font-light">
                   <p>
@@ -284,7 +305,7 @@ export default function PortfolioPage({ params }) {
                     verdadeira e inesquecível.
                   </p>
                 </div>
-                <div className="mt-8 flex gap-4">
+                <div className="mt-8 flex flex-wrap gap-4">
                   <button className="flex items-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-full hover:bg-stone-200 transition-colors text-sm font-medium">
                     <Instagram size={18} /> Instagram
                   </button>

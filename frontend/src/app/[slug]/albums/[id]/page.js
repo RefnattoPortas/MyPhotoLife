@@ -43,6 +43,27 @@ export default function AlbumPage({ params }) {
       .finally(() => setLoading(false));
   }, [slug, id]);
 
+  useEffect(() => {
+    if (!data?.theme) return;
+    const theme = data.theme;
+    const root = document.documentElement;
+    if (theme.bg_color) root.style.setProperty('--color-bg', theme.bg_color);
+    if (theme.hover_color) root.style.setProperty('--color-hover', theme.hover_color);
+    if (theme.font && theme.font !== 'Inter') {
+      root.style.setProperty('--font-family', `'${theme.font}', system-ui, sans-serif`);
+      const id = `gf-${theme.font.replace(/\s+/g, '-')}`;
+      if (!document.getElementById(id)) {
+        const link = document.createElement('link');
+        link.id = id;
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?family=${theme.font.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap`;
+        document.head.appendChild(link);
+      }
+    } else if (theme.font === 'Inter') {
+      root.style.setProperty('--font-family', `'Inter', system-ui, sans-serif`);
+    }
+  }, [data]);
+
   const handleBuy = (item) => {
     setCart((prev) => {
       if (prev.find((i) => i.id === item.id)) return prev;
@@ -96,44 +117,45 @@ export default function AlbumPage({ params }) {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-white/60 backdrop-blur-lg border-b border-stone-100/80 transition-all duration-500">
         <div className="max-w-6xl mx-auto px-6 h-16 md:h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4 min-w-0">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <Link
               href={`/${slug}`}
-              className="w-9 h-9 flex items-center justify-center bg-white border border-stone-200 rounded-full text-stone-500 hover:text-stone-900 hover:bg-stone-50 hover:border-stone-300 active:scale-95 transition-all duration-300 flex-shrink-0"
+              className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center bg-white border border-stone-200 rounded-full text-stone-500 hover:text-stone-900 hover:bg-stone-50 hover:border-stone-300 active:scale-95 transition-all duration-300 flex-shrink-0"
               aria-label="Voltar"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
             </Link>
             <div className="min-w-0">
               <h1 className="text-sm font-semibold text-stone-900 truncate">{album.title}</h1>
               {album.description && (
-                <p className="text-xs text-stone-400 font-light truncate max-w-[200px] sm:max-w-sm">
+                <p className="text-xs text-stone-400 font-light truncate max-w-[140px] sm:max-w-sm">
                   {album.description}
                 </p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {albumOnSale && (
               <button
                 onClick={() => {
                   const albumItem = { id: album.id, type: 'album', title: album.title, price: album.price };
                   setCart((prev) => prev.find((i) => i.id === album.id) ? prev : [...prev, albumItem]);
                 }}
-                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-stone-950 px-5 py-2.5 rounded-full text-xs font-semibold hover:shadow-lg hover:shadow-amber-500/20 active:scale-95 transition-all duration-300"
+                className="flex items-center gap-1.5 sm:gap-2 bg-amber-500 hover:bg-amber-400 text-stone-950 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full text-[11px] sm:text-xs font-semibold hover:shadow-lg hover:shadow-amber-500/20 active:scale-95 transition-all duration-300"
               >
-                <ShoppingBag className="w-4 h-4" />
+                <ShoppingBag className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
                 <span className="hidden sm:inline">Álbum Completo</span>
                 <span className="hidden sm:inline">&middot;</span>
-                R$ {parseFloat(album.price).toFixed(2)}
+                <span className="hidden sm:inline">R$ {parseFloat(album.price).toFixed(2)}</span>
+                <span className="sm:hidden font-bold">{parseFloat(album.price).toFixed(2)}</span>
               </button>
             )}
 
             {cart.length > 0 && (
               <Link
                 href={`/${slug}`}
-                className="relative flex items-center justify-center w-9 h-9 bg-stone-900 text-white rounded-full hover:bg-stone-800 transition-colors"
+                className="relative flex items-center justify-center w-9 h-9 bg-stone-900 text-white rounded-full hover:bg-stone-800 transition-colors flex-shrink-0"
                 title="Ver carrinho"
               >
                 <ShoppingBag className="w-4 h-4" />
@@ -163,7 +185,6 @@ export default function AlbumPage({ params }) {
             <MasonryGrid
               items={media}
               onImageClick={(item) => setLightboxIndex(media.indexOf(item))}
-              columnCount={3}
             />
           </div>
         ) : (

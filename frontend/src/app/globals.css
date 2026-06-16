@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-bg: #fafaf9;
+  --color-hover: #1c1917;
+  --font-family: 'Inter', system-ui, sans-serif;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -14,6 +20,8 @@
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-color: var(--color-bg);
+    font-family: var(--font-family);
   }
 
   ::selection {

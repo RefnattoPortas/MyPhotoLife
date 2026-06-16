@@ -3,7 +3,25 @@
 import { useState, useEffect, useRef } from 'react';
 import { Eye, ShoppingBag } from 'lucide-react';
 
-export default function MasonryGrid({ items, onImageClick, columnCount = 3 }) {
+function useColumns() {
+  const [cols, setCols] = useState(2);
+  useEffect(() => {
+    function update() {
+      const w = window.innerWidth;
+      if (w < 640) setCols(1);
+      else if (w < 1024) setCols(2);
+      else setCols(3);
+    }
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return cols;
+}
+
+export default function MasonryGrid({ items, onImageClick, columnCount: propCols }) {
+  const responsiveCols = useColumns();
+  const columnCount = propCols ?? responsiveCols;
   const [columns, setColumns] = useState([]);
   const containerRef = useRef(null);
 

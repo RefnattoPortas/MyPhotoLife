@@ -28,8 +28,23 @@ export default function DashboardPage() {
   const [selectedAlbum, setSelectedAlbum] = useState(null);
   const [albumMedia, setAlbumMedia] = useState([]);
 
+  const TEMPLATES = [
+    { id: 'classic', name: 'Clássico', bg_color: '#fafaf9', hover_color: '#1c1917', font: 'Inter' },
+    { id: 'elegant', name: 'Elegante', bg_color: '#ffffff', hover_color: '#b91c1c', font: 'Playfair Display' },
+    { id: 'modern', name: 'Moderno', bg_color: '#f0f0f0', hover_color: '#0369a1', font: 'Montserrat' },
+    { id: 'warm', name: 'Aconchegante', bg_color: '#fef3c7', hover_color: '#92400e', font: 'Merriweather' },
+    { id: 'dark', name: 'Escuro', bg_color: '#1c1917', hover_color: '#fafaf9', font: 'Inter' },
+    { id: 'soft', name: 'Suave', bg_color: '#fdf2f8', hover_color: '#be185d', font: 'Nunito' },
+    { id: 'nature', name: 'Natureza', bg_color: '#f0fdf4', hover_color: '#166534', font: 'Lora' },
+    { id: 'ocean', name: 'Oceano', bg_color: '#ecfeff', hover_color: '#0f766e', font: 'Poppins' },
+  ];
+
+  const getCurrentTemplateId = (tc) => {
+    return TEMPLATES.find((t) => t.bg_color === tc.bg_color && t.hover_color === tc.hover_color && t.font === tc.font)?.id || null;
+  };
+
   // Config form
-  const [configForm, setConfigForm] = useState({ name: '', bio: '', pix_key: '', pix_key_type: 'random' });
+  const [configForm, setConfigForm] = useState({ name: '', bio: '', pix_key: '', pix_key_type: 'random', theme_config: { bg_color: '#fafaf9', hover_color: '#1c1917', font: 'Inter' } });
 
   useEffect(() => {
     setUser({ id: 'dev', email: 'dev@local', name: 'Dev', role: 'admin' });
@@ -56,11 +71,17 @@ export default function DashboardPage() {
       setOrders(ordersData.orders || []);
       if (profileData.tenant) {
         setProfile(profileData.tenant);
+        const tc = profileData.tenant.theme_config || {};
         setConfigForm({
           name: profileData.tenant.name || '',
           bio: profileData.tenant.bio || '',
           pix_key: profileData.tenant.pix_key || '',
           pix_key_type: profileData.tenant.pix_key_type || 'random',
+          theme_config: {
+            bg_color: tc.bg_color || '#fafaf9',
+            hover_color: tc.hover_color || '#1c1917',
+            font: tc.font || 'Inter',
+          },
         });
       }
     } catch (err) {
@@ -131,18 +152,19 @@ export default function DashboardPage() {
             <span className="text-sm text-zinc-400">/</span>
             <span className="text-sm text-zinc-600">{tenant?.name}</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <a
               href={`/${tenant?.slug}`}
               target="_blank"
               className="text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
+              title="Ver portfólio"
             >
-              <Camera className="w-4 h-4 inline mr-1" />
-              Ver portfólio
+              <Camera className="w-4 h-4 sm:inline" />
+              <span className="hidden sm:inline sm:ml-1">Ver portfólio</span>
             </a>
-            <button onClick={handleLogout} className="text-sm text-zinc-500 hover:text-zinc-900 transition-colors">
-              <LogOut className="w-4 h-4 inline mr-1" />
-              Sair
+            <button onClick={handleLogout} className="text-sm text-zinc-500 hover:text-zinc-900 transition-colors" title="Sair">
+              <LogOut className="w-4 h-4 sm:inline" />
+              <span className="hidden sm:inline sm:ml-1">Sair</span>
             </button>
           </div>
         </div>
@@ -152,13 +174,13 @@ export default function DashboardPage() {
         {selectedAlbum ? (
           /* === ALBUM DETAIL VIEW === */
           <div>
-            <div className="flex items-start justify-between mb-8">
-              <div>
-                <h1 className="text-2xl font-bold">{selectedAlbum.title}</h1>
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-8">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl font-bold truncate">{selectedAlbum.title}</h1>
                 {selectedAlbum.description && (
-                  <p className="text-zinc-500 mt-1">{selectedAlbum.description}</p>
+                  <p className="text-zinc-500 mt-1 text-sm">{selectedAlbum.description}</p>
                 )}
-                <div className="flex items-center gap-4 mt-2 text-sm text-zinc-400">
+                <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-zinc-400">
                   <span>{albumMedia.length} fotos</span>
                   {selectedAlbum.is_for_sale && (
                     <span className="text-green-600 font-medium">
@@ -170,17 +192,17 @@ export default function DashboardPage() {
                   </span>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 <button
                   onClick={() => setAlbumModal({ open: true, mode: 'edit', album: selectedAlbum })}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 text-sm hover:bg-zinc-50 transition-colors"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 text-sm hover:bg-zinc-50 transition-colors"
                 >
                   <Pencil className="w-4 h-4" />
                   Editar
                 </button>
                 <button
                   onClick={() => handleDeleteAlbum(selectedAlbum.id)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 text-red-600 text-sm hover:bg-red-50 transition-colors"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-red-200 text-red-600 text-sm hover:bg-red-50 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                   Excluir
@@ -374,11 +396,11 @@ export default function DashboardPage() {
             {/* TAB: Albums */}
             {tab === 'albums' && (
               <div>
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
                   <h2 className="text-xl font-semibold">Seus Álbuns</h2>
                   <button
                     onClick={() => setAlbumModal({ open: true, mode: 'create', album: null })}
-                    className="flex items-center gap-2 bg-zinc-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors"
+                    className="flex items-center justify-center gap-2 bg-zinc-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors w-full sm:w-auto"
                   >
                     <Plus className="w-4 h-4" />
                     Novo Álbum
@@ -492,55 +514,153 @@ export default function DashboardPage() {
             {tab === 'settings' && (
               <div>
                 <h2 className="text-xl font-semibold mb-6">Configurações do Perfil</h2>
-                <div className="bg-white rounded-2xl p-6 border border-zinc-200 space-y-5 max-w-lg">
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-1">Nome</label>
-                    <input
-                      type="text"
-                      value={configForm.name}
-                      onChange={(e) => setConfigForm((p) => ({ ...p, name: e.target.value }))}
-                      className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm"
-                    />
+                <div className="space-y-8 max-w-lg">
+                  {/* Perfil */}
+                  <div className="bg-white rounded-2xl p-6 border border-zinc-200 space-y-5">
+                    <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Informações</h3>
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Nome</label>
+                      <input
+                        type="text"
+                        value={configForm.name}
+                        onChange={(e) => setConfigForm((p) => ({ ...p, name: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Biografia</label>
+                      <textarea
+                        rows={3}
+                        value={configForm.bio}
+                        onChange={(e) => setConfigForm((p) => ({ ...p, bio: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm resize-none"
+                        placeholder="Conte um pouco sobre você para seus clientes..."
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-1">Biografia</label>
-                    <textarea
-                      rows={3}
-                      value={configForm.bio}
-                      onChange={(e) => setConfigForm((p) => ({ ...p, bio: e.target.value }))}
-                      className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm resize-none"
-                      placeholder="Conte um pouco sobre você para seus clientes..."
-                    />
+
+                  {/* Pix */}
+                  <div className="bg-white rounded-2xl p-6 border border-zinc-200 space-y-5">
+                    <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Pagamento</h3>
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Chave Pix</label>
+                      <input
+                        type="text"
+                        value={configForm.pix_key}
+                        onChange={(e) => setConfigForm((p) => ({ ...p, pix_key: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm"
+                        placeholder="Sua chave Pix"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Tipo da Chave</label>
+                      <select
+                        value={configForm.pix_key_type}
+                        onChange={(e) => setConfigForm((p) => ({ ...p, pix_key_type: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm bg-white"
+                      >
+                        <option value="cpf">CPF</option>
+                        <option value="cnpj">CNPJ</option>
+                        <option value="email">Email</option>
+                        <option value="phone">Telefone</option>
+                        <option value="random">Chave Aleatória</option>
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-1">Chave Pix</label>
-                    <input
-                      type="text"
-                      value={configForm.pix_key}
-                      onChange={(e) => setConfigForm((p) => ({ ...p, pix_key: e.target.value }))}
-                      className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm"
-                      placeholder="Sua chave Pix"
-                    />
+
+                  {/* Aparência */}
+                  <div className="bg-white rounded-2xl p-6 border border-zinc-200 space-y-5">
+                    <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Aparência do Portfólio</h3>
+
+                    {/* Template Selector */}
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-2">Template</label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {TEMPLATES.map((t) => {
+                          const isActive = getCurrentTemplateId(configForm.theme_config) === t.id;
+                          return (
+                            <button
+                              key={t.id}
+                              onClick={() => setConfigForm((p) => ({ ...p, theme_config: { bg_color: t.bg_color, hover_color: t.hover_color, font: t.font } }))}
+                              className={`relative rounded-xl p-3 border-2 transition-all text-center ${
+                                isActive ? 'border-zinc-900 ring-2 ring-zinc-900/20' : 'border-zinc-200 hover:border-zinc-400'
+                              }`}
+                            >
+                              <div className="flex gap-1 mb-2 justify-center">
+                                <div className="w-5 h-5 rounded-full border border-zinc-200" style={{ backgroundColor: t.bg_color }} />
+                                <div className="w-5 h-5 rounded-full border border-zinc-200" style={{ backgroundColor: t.hover_color }} />
+                              </div>
+                              <span className="text-[11px] font-medium text-zinc-600 block leading-tight">{t.name}</span>
+                              {isActive && (
+                                <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-zinc-900 rounded-full flex items-center justify-center">
+                                  <span className="text-white text-[10px] leading-none">✓</span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Cor de Fundo</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={configForm.theme_config.bg_color}
+                          onChange={(e) => setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, bg_color: e.target.value } }))}
+                          className="w-10 h-10 rounded-lg border border-zinc-200 cursor-pointer bg-transparent p-0.5"
+                        />
+                        <input
+                          type="text"
+                          value={configForm.theme_config.bg_color}
+                          onChange={(e) => setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, bg_color: e.target.value } }))}
+                          className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Cor de Destaque (hover)</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={configForm.theme_config.hover_color}
+                          onChange={(e) => setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, hover_color: e.target.value } }))}
+                          className="w-10 h-10 rounded-lg border border-zinc-200 cursor-pointer bg-transparent p-0.5"
+                        />
+                        <input
+                          type="text"
+                          value={configForm.theme_config.hover_color}
+                          onChange={(e) => setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, hover_color: e.target.value } }))}
+                          className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Fonte</label>
+                      <select
+                        value={configForm.theme_config.font}
+                        onChange={(e) => setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, font: e.target.value } }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm bg-white"
+                      >
+                        <option value="Inter">Inter (Padrão)</option>
+                        <option value="Playfair Display">Playfair Display</option>
+                        <option value="Montserrat">Montserrat</option>
+                        <option value="Merriweather">Merriweather</option>
+                        <option value="Nunito">Nunito</option>
+                        <option value="Poppins">Poppins</option>
+                        <option value="Lora">Lora</option>
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-700 mb-1">Tipo da Chave</label>
-                    <select
-                      value={configForm.pix_key_type}
-                      onChange={(e) => setConfigForm((p) => ({ ...p, pix_key_type: e.target.value }))}
-                      className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm bg-white"
-                    >
-                      <option value="cpf">CPF</option>
-                      <option value="cnpj">CNPJ</option>
-                      <option value="email">Email</option>
-                      <option value="phone">Telefone</option>
-                      <option value="random">Chave Aleatória</option>
-                    </select>
-                  </div>
+
                   <button
                     onClick={handleSaveProfile}
-                    className="bg-zinc-900 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors"
+                    className="w-full bg-zinc-900 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors"
                   >
-                    Salvar
+                    Salvar Configurações
                   </button>
                 </div>
               </div>

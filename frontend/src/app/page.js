@@ -1,228 +1,190 @@
 'use client';
 
-import { useState } from 'react';
-import { Camera, Calendar, User, Mail, Image as ImageIcon, MapPin, Instagram, Twitter } from 'lucide-react';
+import Link from 'next/link';
+import { Camera, Images, ShoppingBag, Palette, Layout, ArrowRight, Check, Star } from 'lucide-react';
 
-const albums = [
-  { id: 1, title: 'Casamento no Campo', image: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=800&auto=format&fit=crop', category: 'Casamentos' },
-  { id: 2, title: 'Retratos Urbanos', image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=800&auto=format&fit=crop', category: 'Retratos' },
-  { id: 3, title: 'Ensaio Gestante', image: 'https://images.unsplash.com/photo-1519689680058-324335c77eba?q=80&w=800&auto=format&fit=crop', category: 'Ensaios' },
-  { id: 4, title: 'Editorial de Moda', image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?q=80&w=800&auto=format&fit=crop', category: 'Moda' },
-  { id: 5, title: 'Luzes da Cidade', image: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?q=80&w=800&auto=format&fit=crop', category: 'Urbano' },
-  { id: 6, title: 'Natureza Selvagem', image: 'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?q=80&w=800&auto=format&fit=crop', category: 'Natureza' },
+const features = [
+  { icon: Layout, title: 'Portfólio Profissional', desc: 'Crie um portfólio online impressionante em minutos. Mostre seu trabalho com galerias responsivas e elegantes.' },
+  { icon: ShoppingBag, title: 'Venda suas Fotos', desc: 'Monetize seu trabalho vendendo fotos digitais diretamente pelo seu portfólio. Receba por Pix.' },
+  { icon: Palette, title: 'Personalização Total', desc: 'Customize cores, fontes e a aparência do seu portfólio para refletir sua identidade visual.' },
+  { icon: Images, title: 'Gerenciamento de Álbuns', desc: 'Organize suas fotos em álbuns, defina capas, preços e gerencie tudo em um só lugar.' },
+  { icon: Camera, title: 'Upload Inteligente', desc: 'Upload com compressão automática para WebP. Suas fotos otimizadas sem perder qualidade.' },
+  { icon: Star, title: 'Link Exclusivo', desc: 'Cada fotógrafo recebe um link único para compartilhar: myphotolife.com/seu-nome.' },
 ];
 
-const schedule = [
-  { id: 1, date: '15 Out 2026', title: 'Casamento Ana & Paulo', location: 'São Paulo, SP', status: 'Confirmado' },
-  { id: 2, date: '22 Out 2026', title: 'Ensaio Editorial Revista X', location: 'Rio de Janeiro, RJ', status: 'Confirmado' },
-  { id: 3, date: '05 Nov 2026', title: 'Mini Wedding Praia', location: 'Florianópolis, SC', status: 'Vagas Encerradas' },
-  { id: 4, date: '12-20 Nov 2026', title: 'Temporada de Ensaios Europa', location: 'Paris & Lisboa', status: 'Agenda Aberta' },
+const steps = [
+  { step: '01', title: 'Crie sua Conta', desc: 'Cadastre-se gratuitamente em menos de 1 minuto.' },
+  { step: '02', title: 'Personalize', desc: 'Escolha cores, fonte e monte seu portfólio do seu jeito.' },
+  { step: '03', title: 'Faça Upload', desc: 'Adicione suas melhores fotos em álbuns organizados.' },
+  { step: '04', title: 'Compartilhe & Venda', desc: 'Compartilhe seu link e comece a vender suas fotos.' },
 ];
 
-export default function PortfolioPlatform() {
-  const [activeTab, setActiveTab] = useState('albums');
+const testimonials = [
+  { name: 'Ana Silva', role: 'Fotógrafa de Casamentos', text: 'MyPhotoLife transformou a forma como apresento meu trabalho. Meus clientes amam a experiência.' },
+  { name: 'Carlos Oliveira', role: 'Fotógrafo de Retratos', text: 'Finalmente uma plataforma que entende as necessidades de um fotógrafo profissional.' },
+  { name: 'Julia Costa', role: 'Fotógrafa de Eventos', text: 'Vender fotos digitais nunca foi tão fácil. O painel é muito intuitivo.' },
+];
 
+export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans selection:bg-zinc-900 selection:text-white">
-      {/* Hero Section */}
-      <header className="relative h-[70vh] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-black/40 z-10" />
-        <img 
-          src="https://images.unsplash.com/photo-1452587925148-ce544e77e70d?q=80&w=1920&auto=format&fit=crop" 
-          alt="Background" 
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="relative z-20 text-center px-6">
-          <h1 className="text-5xl md:text-7xl font-bold text-white tracking-tight mb-4 drop-shadow-md">
-            Gabriel Lens
-          </h1>
-          <p className="text-xl md:text-2xl text-zinc-200 font-light max-w-2xl mx-auto">
-            Capturando a essência de momentos efêmeros. Fotógrafo especializado em casamentos e retratos.
-          </p>
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-zinc-200">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 text-zinc-900 font-bold text-xl">
+            <Camera className="text-zinc-900" /> MyPhotoLife
+          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/login"
+              className="text-sm text-zinc-600 hover:text-zinc-900 transition-colors font-medium"
+            >
+              Entrar
+            </Link>
+            <Link
+              href="/register"
+              className="text-sm bg-zinc-900 text-white px-5 py-2.5 rounded-full font-medium hover:bg-zinc-800 transition-colors"
+            >
+              Criar Portfólio
+            </Link>
+          </div>
         </div>
       </header>
 
-      {/* Sticky Navigation / Tabs */}
-      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-zinc-200 shadow-sm">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-center md:justify-start gap-8 overflow-x-auto no-scrollbar">
-          {[
-            { id: 'albums', label: 'Álbuns', icon: ImageIcon },
-            { id: 'about', label: 'Quem Sou', icon: User },
-            { id: 'schedule', label: 'Agenda', icon: Calendar },
-            { id: 'contact', label: 'Contato', icon: Mail },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-1 py-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-zinc-900 text-zinc-900'
-                    : 'border-transparent text-zinc-500 hover:text-zinc-900'
-                }`}
-              >
-                <Icon size={18} />
-                {tab.label}
-              </button>
-            );
-          })}
+      {/* Hero */}
+      <section className="relative pt-32 pb-20 md:pt-44 md:pb-28 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-100/40 to-zinc-50" />
+        <div className="relative max-w-4xl mx-auto px-6 text-center">
+          <div className="inline-flex items-center gap-2 bg-zinc-900/5 text-zinc-700 text-sm px-4 py-2 rounded-full mb-8 border border-zinc-200">
+            <Camera size={16} />
+            Plataforma SaaS para Fotógrafos
+          </div>
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight leading-[1.08]">
+            Seu portfólio{' '}
+            <span className="bg-gradient-to-r from-zinc-900 to-zinc-500 bg-clip-text text-transparent">
+              profissional
+            </span>{' '}
+            em minutos
+          </h1>
+          <p className="mt-6 text-lg sm:text-xl text-zinc-500 max-w-2xl mx-auto font-light leading-relaxed">
+            Crie, personalize e compartilhe seu portfólio de fotografia. 
+            Venda suas fotos digitais e gerencie tudo em uma plataforma feita para fotógrafos.
+          </p>
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/register"
+              className="bg-zinc-900 text-white px-8 py-3.5 rounded-full font-medium hover:bg-zinc-800 transition-colors text-base shadow-lg shadow-zinc-900/10 w-full sm:w-auto text-center"
+            >
+              Criar meu Portfólio Gratuito
+            </Link>
+            <Link
+              href="/login"
+              className="bg-white text-zinc-900 px-8 py-3.5 rounded-full font-medium hover:bg-zinc-100 transition-colors text-base border border-zinc-200 w-full sm:w-auto text-center"
+            >
+              Já tenho conta
+            </Link>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Main Content Area */}
-      <main className="max-w-6xl mx-auto px-6 py-16 min-h-[50vh]">
-        {/* TAB: ALBUMS */}
-        {activeTab === 'albums' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="mb-10 text-center md:text-left">
-              <h2 className="text-3xl font-bold tracking-tight">Meus Trabalhos</h2>
-              <p className="text-zinc-500 mt-2">Explore algumas das minhas histórias favoritas contadas através de lentes.</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {albums.map((album) => (
-                <div key={album.id} className="group relative rounded-2xl overflow-hidden cursor-pointer aspect-[4/5] bg-zinc-200">
-                  <img
-                    src={album.image}
-                    alt={album.title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1">
-                      {album.category}
-                    </span>
-                    <h3 className="text-xl font-medium text-white">{album.title}</h3>
+      {/* Features */}
+      <section className="py-20 md:py-28">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Tudo que você precisa</h2>
+            <p className="mt-4 text-zinc-500 text-lg max-w-2xl mx-auto">
+              Uma plataforma completa para fotógrafos profissionais gerenciarem, exibirem e venderem seu trabalho.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+            {features.map((f) => {
+              const Icon = f.icon;
+              return (
+                <div key={f.title} className="bg-white rounded-2xl p-6 md:p-8 border border-zinc-100 hover:border-zinc-200 hover:shadow-md transition-all duration-300">
+                  <div className="w-12 h-12 bg-zinc-100 rounded-xl flex items-center justify-center mb-4">
+                    <Icon className="w-6 h-6 text-zinc-700" />
                   </div>
+                  <h3 className="text-lg font-semibold mb-2">{f.title}</h3>
+                  <p className="text-zinc-500 text-sm leading-relaxed">{f.desc}</p>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        )}
+        </div>
+      </section>
 
-        {/* TAB: ABOUT ME */}
-        {activeTab === 'about' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="relative aspect-[3/4] rounded-2xl overflow-hidden shadow-lg">
-                <img
-                  src="https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&w=800&auto=format&fit=crop"
-                  alt="Gabriel Lens"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div>
-                <h2 className="text-4xl font-bold tracking-tight mb-6">Olá, eu sou o Gabriel.</h2>
-                <div className="space-y-4 text-zinc-600 leading-relaxed text-lg">
-                  <p>
-                    Com mais de 10 anos de experiência, minha paixão é transformar momentos que duram apenas um segundo em memórias que duram uma vida inteira.
-                  </p>
-                  <p>
-                    Acredito que a fotografia vai além do técnico; trata-se de conexão, sensibilidade e a capacidade de enxergar a beleza na vulnerabilidade e na alegria pura.
-                  </p>
-                  <p>
-                    Baseado em São Paulo, mas sempre com a mala pronta para fotografar onde a história nos levar.
-                  </p>
-                </div>
-                <div className="mt-8 flex gap-4">
-                  <button className="flex items-center gap-2 bg-zinc-900 text-white px-6 py-3 rounded-full hover:bg-zinc-800 transition-colors">
-                    <Instagram size={20} /> Instagram
-                  </button>
-                  <button className="flex items-center gap-2 bg-zinc-200 text-zinc-900 px-6 py-3 rounded-full hover:bg-zinc-300 transition-colors">
-                    <Twitter size={20} /> Twitter
-                  </button>
-                </div>
-              </div>
-            </div>
+      {/* How it Works */}
+      <section className="py-20 md:py-28 bg-zinc-100/50">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Comece em 4 passos</h2>
+            <p className="mt-4 text-zinc-500 text-lg">Simples, rápido e sem complicação.</p>
           </div>
-        )}
-
-        {/* TAB: SCHEDULE */}
-        {activeTab === 'schedule' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl mx-auto">
-            <div className="mb-10 text-center">
-              <h2 className="text-3xl font-bold tracking-tight">Agenda 2026</h2>
-              <p className="text-zinc-500 mt-2">Confira meus próximos destinos e disponibilidade.</p>
-            </div>
-            
-            <div className="space-y-4">
-              {schedule.map((event) => (
-                <div key={event.id} className="bg-white p-6 rounded-2xl border border-zinc-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-zinc-300 transition-colors">
-                  <div>
-                    <h3 className="text-lg font-semibold text-zinc-900">{event.title}</h3>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-zinc-500">
-                      <span className="flex items-center gap-1"><Calendar size={14} /> {event.date}</span>
-                      <span className="flex items-center gap-1"><MapPin size={14} /> {event.location}</span>
-                    </div>
-                  </div>
-                  <div className={`px-4 py-2 rounded-full text-xs font-semibold tracking-wide uppercase self-start sm:self-center ${
-                    event.status === 'Agenda Aberta' ? 'bg-green-100 text-green-700' :
-                    event.status === 'Confirmado' ? 'bg-zinc-100 text-zinc-700' :
-                    'bg-red-50 text-red-600'
-                  }`}>
-                    {event.status}
-                  </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {steps.map((s) => (
+              <div key={s.step} className="text-center">
+                <div className="w-14 h-14 bg-zinc-900 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 text-lg font-bold">
+                  {s.step}
                 </div>
-              ))}
-            </div>
-
-            <div className="mt-12 text-center p-8 bg-zinc-900 text-white rounded-3xl">
-              <h3 className="text-2xl font-bold mb-3">Deseja me levar para sua cidade?</h3>
-              <p className="text-zinc-400 mb-6 max-w-lg mx-auto">Entre em contato para organizarmos uma temporada de ensaios na sua região.</p>
-              <button className="bg-white text-zinc-900 px-8 py-3 rounded-full font-medium hover:bg-zinc-100 transition-colors">
-                Solicitar Orçamento
-              </button>
-            </div>
+                <h3 className="font-semibold text-lg mb-2">{s.title}</h3>
+                <p className="text-zinc-500 text-sm">{s.desc}</p>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
+      </section>
 
-        {/* TAB: CONTACT */}
-        {activeTab === 'contact' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto">
-            <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold tracking-tight">Vamos Conversar</h2>
-              <p className="text-zinc-500 mt-2">Preencha o formulário abaixo ou me envie um e-mail direto.</p>
-            </div>
-
-            <form className="bg-white p-8 rounded-3xl shadow-sm border border-zinc-100 space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-zinc-700">Nome Completo</label>
-                  <input type="text" className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-900" placeholder="Seu nome" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-zinc-700">E-mail</label>
-                  <input type="email" className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-900" placeholder="seu@email.com" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-700">Tipo de Evento</label>
-                <select className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-900 bg-white">
-                  <option>Casamento</option>
-                  <option>Ensaio Casal</option>
-                  <option>Retrato Individual</option>
-                  <option>Evento Corporativo</option>
-                  <option>Outro</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-700">Mensagem</label>
-                <textarea rows={4} className="w-full px-4 py-3 rounded-xl border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-900 resize-none" placeholder="Conte-me um pouco sobre o que você deseja..."></textarea>
-              </div>
-              <button type="button" className="w-full bg-zinc-900 text-white font-medium py-4 rounded-xl hover:bg-zinc-800 transition-colors">
-                Enviar Mensagem
-              </button>
-            </form>
+      {/* Testimonials */}
+      <section className="py-20 md:py-28">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight">O que dizem os fotógrafos</h2>
           </div>
-        )}
-      </main>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {testimonials.map((t) => (
+              <div key={t.name} className="bg-white rounded-2xl p-6 border border-zinc-100">
+                <div className="flex gap-1 mb-4">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-4 h-4 fill-zinc-900 text-zinc-900" />
+                  ))}
+                </div>
+                <p className="text-zinc-600 text-sm leading-relaxed mb-6">&ldquo;{t.text}&rdquo;</p>
+                <div>
+                  <p className="font-semibold text-sm">{t.name}</p>
+                  <p className="text-zinc-400 text-xs">{t.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-      <footer className="border-t border-zinc-200 bg-white py-10 mt-10">
+      {/* CTA */}
+      <section className="py-20 md:py-28 bg-zinc-900 text-white">
+        <div className="max-w-3xl mx-auto px-6 text-center">
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">
+            Pronto para levar seu portfólio ao próximo nível?
+          </h2>
+          <p className="text-zinc-400 text-lg mb-10 max-w-xl mx-auto">
+            Crie seu portfólio profissional gratuitamente e comece a vender suas fotos hoje mesmo.
+          </p>
+          <Link
+            href="/register"
+            className="inline-flex items-center gap-2 bg-white text-zinc-900 px-8 py-3.5 rounded-full font-medium hover:bg-zinc-100 transition-colors text-base shadow-lg"
+          >
+            Criar Portfólio Grátis <ArrowRight size={18} />
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-zinc-200 bg-white py-10">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-zinc-900 font-bold text-xl">
             <Camera className="text-zinc-900" /> MyPhotoLife
           </div>
           <p className="text-zinc-500 text-sm">
-            © 2026 Gabriel Lens. Desenvolvido com MyPhotoLife.
+            &copy; {new Date().getFullYear()} MyPhotoLife. Todos os direitos reservados.
           </p>
         </div>
       </footer>

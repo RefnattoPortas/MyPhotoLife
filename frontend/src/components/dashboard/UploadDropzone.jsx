@@ -140,7 +140,7 @@ export default function UploadDropzone({ albumId, onUploadComplete }) {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => inputRef.current?.click()}
-        className={`relative cursor-pointer border-2 border-dashed rounded-2xl p-10 text-center transition-all ${
+        className={`relative cursor-pointer border-2 border-dashed rounded-2xl p-6 sm:p-10 text-center transition-all ${
           dragging
             ? 'border-zinc-900 bg-zinc-50'
             : 'border-zinc-200 hover:border-zinc-300 bg-white'
