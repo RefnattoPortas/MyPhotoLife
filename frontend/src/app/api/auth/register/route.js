@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { supabase } from '@/lib/supabaseClient'; // The existing client
+import { supabase } from '@/lib/supabaseClient';
 
 const SALT_ROUNDS = 12;
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-to-a-long-random-string'; // Fallback for local dev
@@ -35,8 +35,8 @@ export async function POST(request) {
       return NextResponse.json({ message: 'Slug or email already in use' }, { status: 400 });
     }
 
-    const tenantId = uuidv4();
-    const userId = uuidv4();
+    const tenantId = crypto.randomUUID();
+    const userId = crypto.randomUUID();
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     // Insert Tenant
@@ -93,6 +93,6 @@ export async function POST(request) {
 
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ message: error.message, stack: error.stack }, { status: 500 });
+    return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }
