@@ -7,7 +7,7 @@ import AlbumModal from '@/components/dashboard/AlbumModal';
 import UploadDropzone from '@/components/dashboard/UploadDropzone';
 import {
   Plus, Image as ImageIcon, Package, Settings, LogOut, Camera,
-  DollarSign, Images, FolderOpen, ArrowLeft, Trash2, Pencil,
+  DollarSign, Images, FolderOpen, ArrowLeft, Trash2, Pencil, Calendar, MapPin,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({ albumCount: 0, mediaCount: 0, orderCount: 0, revenue: 0 });
   const [albums, setAlbums] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [schedule, setSchedule] = useState([]);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('overview');
@@ -29,36 +30,44 @@ export default function DashboardPage() {
   const [albumMedia, setAlbumMedia] = useState([]);
 
   const TEMPLATES = [
-    { id: 'classic', name: 'Clássico', bg_color: '#fafaf9', hover_color: '#1c1917', font: 'Inter' },
-    { id: 'elegant', name: 'Elegante', bg_color: '#ffffff', hover_color: '#b91c1c', font: 'Playfair Display' },
-    { id: 'modern', name: 'Moderno', bg_color: '#f0f0f0', hover_color: '#0369a1', font: 'Montserrat' },
-    { id: 'warm', name: 'Aconchegante', bg_color: '#fef3c7', hover_color: '#92400e', font: 'Merriweather' },
-    { id: 'dark', name: 'Escuro', bg_color: '#1c1917', hover_color: '#fafaf9', font: 'Inter' },
-    { id: 'soft', name: 'Suave', bg_color: '#fdf2f8', hover_color: '#be185d', font: 'Nunito' },
-    { id: 'nature', name: 'Natureza', bg_color: '#f0fdf4', hover_color: '#166534', font: 'Lora' },
-    { id: 'ocean', name: 'Oceano', bg_color: '#ecfeff', hover_color: '#0f766e', font: 'Poppins' },
+    { id: 'classic', name: 'Clássico', bg_color: '#fafaf9', hover_color: '#1c1917', text_color: '#1c1917', font: 'Inter' },
+    { id: 'elegant', name: 'Elegante', bg_color: '#ffffff', hover_color: '#b91c1c', text_color: '#1c1917', font: 'Playfair Display' },
+    { id: 'modern', name: 'Moderno', bg_color: '#f0f0f0', hover_color: '#0369a1', text_color: '#1c1917', font: 'Montserrat' },
+    { id: 'warm', name: 'Aconchegante', bg_color: '#fef3c7', hover_color: '#92400e', text_color: '#1c1917', font: 'Merriweather' },
+    { id: 'dark', name: 'Escuro', bg_color: '#1c1917', hover_color: '#fafaf9', text_color: '#f5f5f4', font: 'Inter' },
+    { id: 'soft', name: 'Suave', bg_color: '#fdf2f8', hover_color: '#be185d', text_color: '#1c1917', font: 'Nunito' },
+    { id: 'nature', name: 'Natureza', bg_color: '#f0fdf4', hover_color: '#166534', text_color: '#1c1917', font: 'Lora' },
+    { id: 'ocean', name: 'Oceano', bg_color: '#ecfeff', hover_color: '#0f766e', text_color: '#1c1917', font: 'Poppins' },
   ];
 
   const getCurrentTemplateId = (tc) => {
-    return TEMPLATES.find((t) => t.bg_color === tc.bg_color && t.hover_color === tc.hover_color && t.font === tc.font)?.id || null;
+    return TEMPLATES.find((t) => t.bg_color === tc.bg_color && t.hover_color === tc.hover_color && t.text_color === tc.text_color && t.font === tc.font)?.id || null;
   };
 
   // Config form
-  const [configForm, setConfigForm] = useState({ name: '', bio: '', pix_key: '', pix_key_type: 'random', theme_config: { bg_color: '#fafaf9', hover_color: '#1c1917', font: 'Inter' } });
+  const [configForm, setConfigForm] = useState({ name: '', bio: '', headline: '', pix_key: '', pix_key_type: 'random', instagram: '', twitter: '', phone: '', whatsapp: '', theme_config: { bg_color: '#fafaf9', hover_color: '#1c1917', text_color: '#1c1917', font: 'Inter', cover_url: '' } });
 
   useEffect(() => {
-    setUser({ id: 'dev', email: 'dev@local', name: 'Dev', role: 'admin' });
-    setTenant({ id: 'dev', name: 'Minha Conta', slug: 'dev' });
+    const storedUser = localStorage.getItem('user');
+    const storedTenant = localStorage.getItem('tenant');
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+    if (storedUser) setUser(JSON.parse(storedUser));
+    if (storedTenant) setTenant(JSON.parse(storedTenant));
     loadData();
   }, []);
 
   const loadData = async () => {
     try {
-      const [statsData, albumsData, ordersData, profileData] = await Promise.all([
+      const [statsData, albumsData, ordersData, profileData, scheduleData] = await Promise.all([
         api.tenant.stats().then((r) => r).catch(() => ({ stats: {} })),
         api.albums.list().catch(() => ({ albums: [] })),
         api.orders.list().catch(() => ({ orders: [] })),
         api.tenant.profile().catch(() => ({})),
+        api.schedule.list().catch(() => ({ schedule: [] })),
       ]);
       const s = statsData.stats || {};
       setStats({
@@ -69,18 +78,26 @@ export default function DashboardPage() {
       });
       setAlbums(albumsData.albums || []);
       setOrders(ordersData.orders || []);
+      setSchedule(scheduleData.schedule || []);
       if (profileData.tenant) {
         setProfile(profileData.tenant);
         const tc = profileData.tenant.theme_config || {};
         setConfigForm({
           name: profileData.tenant.name || '',
           bio: profileData.tenant.bio || '',
+          headline: profileData.tenant.headline || '',
           pix_key: profileData.tenant.pix_key || '',
           pix_key_type: profileData.tenant.pix_key_type || 'random',
+          instagram: profileData.tenant.instagram || '',
+          twitter: profileData.tenant.twitter || '',
+          phone: profileData.tenant.phone || '',
+          whatsapp: profileData.tenant.whatsapp || '',
           theme_config: {
             bg_color: tc.bg_color || '#fafaf9',
             hover_color: tc.hover_color || '#1c1917',
+            text_color: tc.text_color || '#1c1917',
             font: tc.font || 'Inter',
+            cover_url: tc.cover_url || '',
           },
         });
       }
@@ -124,6 +141,65 @@ export default function DashboardPage() {
     await api.tenant.update(configForm);
     alert('Configurações salvas!');
   };
+
+  function ScheduleForm({ onSaved }) {
+    const [title, setTitle] = useState('');
+    const [date, setDate] = useState('');
+    const [location, setLocation] = useState('');
+    const [status, setStatus] = useState('Agenda Aberta');
+    const [saving, setSaving] = useState(false);
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      if (!title || !date) return;
+      setSaving(true);
+      try {
+        await api.schedule.create({ title, event_date: date, location, status });
+        setTitle(''); setDate(''); setLocation(''); setStatus('Agenda Aberta');
+        onSaved();
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    return (
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-6 border border-zinc-200 space-y-4">
+        <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Novo Evento</h3>
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">Título</label>
+          <input type="text" value={title} onChange={e => setTitle(e.target.value)} required
+            className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none text-sm" placeholder="Ex: Casamento" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Data</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} required
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">Status</label>
+            <select value={status} onChange={e => setStatus(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none text-sm bg-white">
+              <option value="Agenda Aberta">Agenda Aberta</option>
+              <option value="Confirmado">Confirmado</option>
+              <option value="Vagas Encerradas">Vagas Encerradas</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 mb-1">Local</label>
+          <input type="text" value={location} onChange={e => setLocation(e.target.value)}
+            className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none text-sm" placeholder="Ex: São Paulo, SP" />
+        </div>
+        <button type="submit" disabled={saving}
+          className="w-full bg-zinc-900 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors disabled:opacity-50">
+          {saving ? 'Salvando...' : 'Adicionar Evento'}
+        </button>
+      </form>
+    );
+  }
 
   const handleLogout = () => {
     router.push('/');
@@ -319,6 +395,7 @@ export default function DashboardPage() {
               {[
                 { key: 'overview', label: 'Visão Geral', icon: ImageIcon },
                 { key: 'albums', label: 'Álbuns', icon: FolderOpen },
+                { key: 'schedule', label: 'Agenda', icon: Calendar },
                 { key: 'orders', label: 'Pedidos', icon: Package },
                 { key: 'settings', label: 'Configurar', icon: Settings },
               ].map((t) => (
@@ -510,6 +587,59 @@ export default function DashboardPage() {
               </div>
             )}
 
+            {/* TAB: Schedule */}
+            {tab === 'schedule' && (
+              <div>
+                <h2 className="text-xl font-semibold mb-6">Agenda</h2>
+                <div className="max-w-lg space-y-6">
+                  <ScheduleForm
+                    onSaved={() => api.schedule.list().then(r => setSchedule(r.schedule || [])).catch(() => {})}
+                  />
+                  {schedule.length === 0 ? (
+                    <div className="text-center py-12 text-zinc-400 border border-dashed border-zinc-200 rounded-2xl">
+                      <Calendar className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">Nenhum evento na agenda</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {schedule.map((ev) => (
+                        <div key={ev.id} className="bg-white rounded-xl p-4 border border-zinc-200 flex items-center justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm">{ev.title}</p>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-zinc-500">
+                              <span className="flex items-center gap-1"><Calendar size={12} /> {new Date(ev.event_date).toLocaleDateString('pt-BR')}</span>
+                              {ev.location && <span className="flex items-center gap-1"><MapPin size={12} /> {ev.location}</span>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                              ev.status === 'Agenda Aberta' ? 'bg-emerald-50 text-emerald-600' :
+                              ev.status === 'Confirmado' ? 'bg-stone-100 text-stone-600' :
+                              'bg-rose-50 text-rose-600'
+                            }`}>
+                              {ev.status}
+                            </span>
+                            <button
+                              onClick={async () => {
+                                if (confirm('Excluir este evento?')) {
+                                  await api.schedule.delete(ev.id);
+                                  const r = await api.schedule.list();
+                                  setSchedule(r.schedule || []);
+                                }
+                              }}
+                              className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* TAB: Settings */}
             {tab === 'settings' && (
               <div>
@@ -528,7 +658,17 @@ export default function DashboardPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-zinc-700 mb-1">Biografia</label>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Frase de Destaque (cabeçalho)</label>
+                      <input
+                        type="text"
+                        value={configForm.headline}
+                        onChange={(e) => setConfigForm((p) => ({ ...p, headline: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm"
+                        placeholder="Fotógrafa especializada em casamentos e ensaios"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Biografia (aba Quem Sou)</label>
                       <textarea
                         rows={3}
                         value={configForm.bio}
@@ -568,9 +708,107 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
+                  {/* Redes Sociais */}
+                  <div className="bg-white rounded-2xl p-6 border border-zinc-200 space-y-5">
+                    <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Redes Sociais</h3>
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Instagram</label>
+                      <input
+                        type="text"
+                        value={configForm.instagram}
+                        onChange={(e) => setConfigForm((p) => ({ ...p, instagram: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm"
+                        placeholder="https://instagram.com/seuperfil"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Twitter / X</label>
+                      <input
+                        type="text"
+                        value={configForm.twitter}
+                        onChange={(e) => setConfigForm((p) => ({ ...p, twitter: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm"
+                        placeholder="https://twitter.com/seuperfil"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Telefone</label>
+                      <input
+                        type="text"
+                        value={configForm.phone}
+                        onChange={(e) => setConfigForm((p) => ({ ...p, phone: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm"
+                        placeholder="(11) 99999-9999"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">WhatsApp</label>
+                      <input
+                        type="text"
+                        value={configForm.whatsapp}
+                        onChange={(e) => setConfigForm((p) => ({ ...p, whatsapp: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm"
+                        placeholder="https://wa.me/5511999999999"
+                      />
+                    </div>
+                  </div>
+
                   {/* Aparência */}
                   <div className="bg-white rounded-2xl p-6 border border-zinc-200 space-y-5">
                     <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">Aparência do Portfólio</h3>
+
+                    {/* Capa */}
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-2">Capa do Portfólio</label>
+                      <div className="flex flex-col sm:flex-row items-start gap-4">
+                        <div className="w-full sm:w-24 h-48 sm:h-24 rounded-xl border border-zinc-200 overflow-hidden flex-shrink-0 bg-zinc-100">
+                          {configForm.theme_config.cover_url ? (
+                            <img src={configForm.theme_config.cover_url} alt="Capa" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-zinc-300">
+                              <ImageIcon className="w-8 h-8" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <label className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-600 hover:bg-zinc-50 cursor-pointer transition-colors">
+                            <Camera className="w-4 h-4" />
+                            {configForm.theme_config.cover_url ? 'Trocar imagem' : 'Escolher imagem'}
+                            <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const token = localStorage.getItem('auth_token');
+                              const formData = new FormData();
+                              formData.append('file', file);
+                              try {
+                                const res = await fetch('/api/tenant/upload', {
+                                  method: 'POST',
+                                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                                  body: formData,
+                                });
+                                const data = await res.json();
+                                if (res.ok) {
+                                  setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, cover_url: data.url } }));
+                                } else {
+                                  alert(data.message || 'Erro ao enviar imagem');
+                                }
+                              } catch {
+                                alert('Erro ao enviar imagem');
+                              }
+                            }} />
+                          </label>
+                          {configForm.theme_config.cover_url && (
+                            <button
+                              onClick={() => setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, cover_url: '' } }))}
+                              className="mt-2 text-xs text-red-500 hover:text-red-700 transition-colors"
+                            >
+                              Remover capa
+                            </button>
+                          )}
+                          <p className="mt-1 text-xs text-zinc-400">Recomendado: 1920x600px</p>
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Template Selector */}
                     <div>
@@ -581,7 +819,7 @@ export default function DashboardPage() {
                           return (
                             <button
                               key={t.id}
-                              onClick={() => setConfigForm((p) => ({ ...p, theme_config: { bg_color: t.bg_color, hover_color: t.hover_color, font: t.font } }))}
+                              onClick={() => setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, bg_color: t.bg_color, hover_color: t.hover_color, text_color: t.text_color, font: t.font } }))}
                               className={`relative rounded-xl p-3 border-2 transition-all text-center ${
                                 isActive ? 'border-zinc-900 ring-2 ring-zinc-900/20' : 'border-zinc-200 hover:border-zinc-400'
                               }`}
@@ -633,6 +871,24 @@ export default function DashboardPage() {
                           type="text"
                           value={configForm.theme_config.hover_color}
                           onChange={(e) => setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, hover_color: e.target.value } }))}
+                          className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-1">Cor da Fonte</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={configForm.theme_config.text_color}
+                          onChange={(e) => setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, text_color: e.target.value } }))}
+                          className="w-10 h-10 rounded-lg border border-zinc-200 cursor-pointer bg-transparent p-0.5"
+                        />
+                        <input
+                          type="text"
+                          value={configForm.theme_config.text_color}
+                          onChange={(e) => setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, text_color: e.target.value } }))}
                           className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors text-sm font-mono"
                         />
                       </div>

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { Camera, ShoppingBag, ArrowRight, Trash2, X, AlertCircle, Image as ImageIcon, User, Calendar, Mail, MapPin, Instagram, Twitter } from 'lucide-react';
+import { Camera, ShoppingBag, ArrowRight, Trash2, X, AlertCircle, Image as ImageIcon, User, Mail, Calendar, MapPin, Instagram, Twitter, Phone, MessageCircle } from 'lucide-react';
 
 function useScrollReveal() {
   const ref = useRef(null);
@@ -31,14 +31,6 @@ function ScrollReveal({ children, className = '' }) {
   return <div ref={ref} className={`opacity-0 ${className}`}>{children}</div>;
 }
 
-// Generic schedule
-const schedule = [
-  { id: 1, date: '15 Out 2026', title: 'Casamento', location: 'São Paulo, SP', status: 'Confirmado' },
-  { id: 2, date: '22 Out 2026', title: 'Ensaio Editorial', location: 'Rio de Janeiro, RJ', status: 'Confirmado' },
-  { id: 3, date: '05 Nov 2026', title: 'Mini Wedding', location: 'Florianópolis, SC', status: 'Vagas Encerradas' },
-  { id: 4, date: '12-20 Nov 2026', title: 'Temporada de Ensaios', location: 'Paris & Lisboa', status: 'Agenda Aberta' },
-];
-
 export default function PortfolioPage({ params }) {
   const router = useRouter();
   const { slug } = params;
@@ -50,43 +42,101 @@ export default function PortfolioPage({ params }) {
 
   useEffect(() => {
     api.portfolio.get(slug)
-      .then((res) => { if (!res) setData(null); else setData(res); })
-      .catch(() => {
-        setData({
-          photographer: { name: 'Ana Silva Fotografia', slug, bio: 'Fotógrafa especializada em retratos e ensaios externos. Há mais de 8 anos transformando momentos em arte visual.' },
-          albums: [
-            { id: '1', title: 'Ensaios Externos', description: 'Sessões ao ar livre com luz natural.', price: '0', is_for_sale: false, media_count: 12, cover_thumbnail: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=800&auto=format&fit=crop' },
-            { id: '2', title: 'Newborn', description: 'Ensaios de recém-nascidos no conforto do lar.', price: '149.90', is_for_sale: true, media_count: 8, cover_thumbnail: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=800&auto=format&fit=crop' },
-            { id: '3', title: 'Casamentos', description: 'Registros emocionantes de grandes dias.', price: '0', is_for_sale: false, media_count: 24, cover_thumbnail: 'https://images.unsplash.com/photo-1519689680058-324335c77eba?q=80&w=800&auto=format&fit=crop' },
-            { id: '4', title: 'Retratos Profissionais', description: 'Fotos para currículo e redes sociais.', price: '79.90', is_for_sale: true, media_count: 6, cover_thumbnail: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?q=80&w=800&auto=format&fit=crop' },
-            { id: '5', title: 'Natureza & Paisagens', description: 'Registros de viagens e contato com a natureza.', price: '0', is_for_sale: false, media_count: 18, cover_thumbnail: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?q=80&w=800&auto=format&fit=crop' },
-            { id: '6', title: 'Família', description: 'Ensaios familiares com emoção e leveza.', price: '199.90', is_for_sale: true, media_count: 10, cover_thumbnail: 'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?q=80&w=800&auto=format&fit=crop' },
-          ],
-        });
-      })
+      .then((res) => setData(res || null))
+      .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [slug]);
 
   useEffect(() => {
     if (!data?.photographer?.theme) return;
     const theme = data.photographer.theme;
-    const root = document.documentElement;
-    if (theme.bg_color) root.style.setProperty('--color-bg', theme.bg_color);
-    if (theme.hover_color) root.style.setProperty('--color-hover', theme.hover_color);
+    const bg = theme.bg_color || '#fafaf9';
+    const hover = theme.hover_color || '#1c1917';
+    const rawText = theme.text_color || '';
+    const isDark = /^#[0-9a-f]{6}$/i.test(bg) && parseInt(bg.replace('#',''),16) < 0x808080;
+    const textColor = /^#[0-9a-f]{6}$/i.test(rawText) ? rawText : (isDark ? '#f5f5f4' : '#1c1917');
+    const textSecondary = isDark ? '#a8a29e' : '#78716c';
+    const surface = isDark ? '#2d2a27' : '#ffffff';
+    const border = isDark ? '#3d3a37' : '#e7e5e4';
+    const heroFrom = isDark ? '#2d2a27' : '#f5f5f4';
+
+    let styleEl = document.getElementById('portfolio-theme');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'portfolio-theme';
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `
+      .portfolio-root {
+        background-color: ${bg} !important;
+        color: ${textColor} !important;
+      }
+      .portfolio-root .bg-stone-50,
+      .portfolio-root .bg-stone-100,
+      .portfolio-root div:has(> .pf-hero) { background-color: ${bg} !important; }
+      .portfolio-root .bg-white { background-color: ${surface} !important; }
+      .portfolio-root .bg-stone-900,
+      .portfolio-root .bg-zinc-900 { background-color: ${hover} !important; }
+      .portfolio-root .text-stone-900,
+      .portfolio-root .text-zinc-900,
+      .portfolio-root .text-stone-800,
+      .portfolio-root .text-zinc-800 { color: ${textColor} !important; }
+      .portfolio-root .text-stone-500,
+      .portfolio-root .text-zinc-500,
+      .portfolio-root .text-stone-400,
+      .portfolio-root .text-zinc-400 { color: ${textSecondary} !important; }
+      .portfolio-root .border-stone-200,
+      .portfolio-root .border-stone-100,
+      .portfolio-root .border-zinc-200 { border-color: ${border} !important; }
+      .portfolio-root .hover\\:bg-stone-800:hover,
+      .portfolio-root .hover\\:bg-zinc-800:hover { background-color: ${adjustColor(hover, -20)} !important; }
+      .portfolio-root .hover\\:text-stone-900:hover,
+      .portfolio-root .hover\\:text-zinc-900:hover { color: ${textColor} !important; }
+      .portfolio-root button:not(.no-theme) { transition: all 0.2s !important; }
+      .portfolio-root header { backdrop-filter: blur(12px) !important; }
+      .portfolio-root .pf-hero {
+        background: ${bg} !important;
+      }
+      .portfolio-root [class*="bg-gradient"] { background: ${bg} !important; }
+      .portfolio-root [class*="radial-gradient"] { background-image: none !important; }
+      .portfolio-root .pf-accent {
+        background-color: ${hover} !important;
+        color: ${getContrastColor(hover)} !important;
+      }
+    `;
+
     if (theme.font && theme.font !== 'Inter') {
-      root.style.setProperty('--font-family', `'${theme.font}', system-ui, sans-serif`);
-      const id = `gf-${theme.font.replace(/\s+/g, '-')}`;
-      if (!document.getElementById(id)) {
+      styleEl.textContent += `
+        .portfolio-root { font-family: '${theme.font}', system-ui, sans-serif !important; }
+      `;
+      const linkId = `gf-${theme.font.replace(/\s+/g, '-')}`;
+      if (!document.getElementById(linkId)) {
         const link = document.createElement('link');
-        link.id = id;
+        link.id = linkId;
         link.rel = 'stylesheet';
         link.href = `https://fonts.googleapis.com/css2?family=${theme.font.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap`;
         document.head.appendChild(link);
       }
-    } else if (theme.font === 'Inter') {
-      root.style.setProperty('--font-family', `'Inter', system-ui, sans-serif`);
+    } else {
+      styleEl.textContent += `
+        .portfolio-root { font-family: 'Inter', system-ui, sans-serif !important; }
+      `;
     }
   }, [data]);
+
+  function adjustColor(hex, amount) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+    const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));
+    const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+  }
+
+  function getContrastColor(hex) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const luminance = (0.299 * (num >> 16) + 0.587 * ((num >> 8) & 0x00FF) + 0.114 * (num & 0x0000FF)) / 255;
+    return luminance > 0.5 ? '#1c1917' : '#ffffff';
+  }
 
   const addToCart = (item) => {
     setCart((prev) => {
@@ -135,17 +185,17 @@ export default function PortfolioPage({ params }) {
     );
   }
 
-  const { photographer, albums } = data;
+  const { photographer, albums, schedule } = data;
   const cartTotal = cart.reduce((acc, item) => acc + parseFloat(item.price || 0), 0);
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 font-sans">
+    <div className="portfolio-root min-h-screen bg-stone-50 text-stone-900 font-sans">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-white/60 backdrop-blur-lg border-b border-stone-100/80 transition-all duration-500">
-        <div className="max-w-6xl mx-auto px-6 h-16 md:h-20 flex items-center justify-between">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-stone-900/15 backdrop-blur-lg shadow-md shadow-black/10 border-b border-black/10 transition-all duration-500">
+        <div className="relative z-10 max-w-6xl mx-auto px-6 h-[52px] md:h-16 flex items-center justify-between">
           <Link
             href={`/${slug}`}
-            className="text-sm font-semibold tracking-tight text-stone-800 hover:text-stone-900 transition-colors"
+            className="text-sm font-semibold tracking-tight text-white/90 hover:text-white transition-colors"
           >
             {photographer.name}
           </Link>
@@ -153,8 +203,8 @@ export default function PortfolioPage({ params }) {
             onClick={() => cart.length > 0 && setShowCart(!showCart)}
             className={`relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-500 ${
               cart.length > 0
-                ? 'bg-stone-900 text-white shadow-lg shadow-stone-900/10 hover:bg-stone-800'
-                : 'bg-stone-100 text-stone-400 hover:bg-stone-200 hover:text-stone-600'
+                ? 'bg-white/20 text-white shadow-lg shadow-black/10 hover:bg-white/30'
+                : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white/80'
             }`}
             disabled={cart.length === 0}
             aria-label="Carrinho"
@@ -170,11 +220,18 @@ export default function PortfolioPage({ params }) {
       </header>
 
       {/* Spacer for fixed header */}
-      <div className="h-16 md:h-20" />
+      <div className="h-[52px] md:h-16" />
 
       {/* Hero */}
       <section className="relative overflow-hidden pt-12 pb-8 md:pt-16 md:pb-12">
-        <div className="absolute inset-0 bg-gradient-to-b from-stone-100/60 to-stone-50" />
+        {photographer.theme?.cover_url ? (
+          <div className="absolute inset-0">
+            <img src={photographer.theme.cover_url} alt="" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-stone-50" />
+          </div>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-b from-stone-100/60 to-stone-50" />
+        )}
         <div className="absolute inset-0 bg-[radial-gradient(#d6d3d1_1px,transparent_1px)] [background-size:20px_20px] opacity-40" />
         <div className="relative max-w-4xl mx-auto px-6 text-center">
           <div className="inline-flex items-center justify-center w-20 sm:w-24 h-20 sm:h-24 rounded-full bg-stone-100 border-4 border-white shadow-lg mb-6 overflow-hidden animate-fade-in">
@@ -183,9 +240,9 @@ export default function PortfolioPage({ params }) {
           <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-stone-900 leading-[1.08] animate-fade-up">
             {photographer.name}
           </h1>
-          {photographer.bio ? (
+          {photographer.headline ? (
             <p className="mt-5 max-w-2xl mx-auto text-stone-500 text-base md:text-lg leading-relaxed font-light animate-fade-up stagger-2">
-              {photographer.bio}
+              {photographer.headline}
             </p>
           ) : (
             <p className="mt-5 max-w-2xl mx-auto text-stone-400 text-base md:text-lg leading-relaxed font-light italic animate-fade-up stagger-2">
@@ -194,27 +251,27 @@ export default function PortfolioPage({ params }) {
           )}
           
           {/* Navigation Tabs */}
-          <div className="mt-10 flex items-center justify-start sm:justify-center gap-6 overflow-x-auto no-scrollbar max-w-full animate-fade-up stagger-3 px-2">
+          <div className="mt-10 flex items-center justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar max-w-full animate-fade-up stagger-3 px-2">
              {[
-               { id: 'albums', label: 'Álbuns', icon: ImageIcon },
-               { id: 'about', label: 'Quem Sou', icon: User },
-               { id: 'schedule', label: 'Agenda', icon: Calendar },
-               { id: 'contact', label: 'Contato', icon: Mail },
-             ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-1 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? 'border-stone-900 text-stone-900'
-                      : 'border-transparent text-stone-400 hover:text-stone-700'
-                  }`}
-                >
-                  <tab.icon size={16} />
-                  {tab.label}
-                </button>
-             ))}
-          </div>
+                { id: 'albums', label: 'Álbuns', icon: ImageIcon },
+                ...(photographer.bio ? [{ id: 'about', label: 'Quem Sou', icon: User }] : []),
+                ...(schedule?.length > 0 ? [{ id: 'schedule', label: 'Agenda', icon: Calendar }] : []),
+                { id: 'contact', label: 'Contato', icon: Mail },
+              ].map(tab => (
+                 <button
+                   key={tab.id}
+                   onClick={() => setActiveTab(tab.id)}
+                   className={`flex items-center gap-2 px-2 sm:px-3 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
+                     activeTab === tab.id
+                       ? 'border-stone-900 text-stone-900'
+                       : 'border-transparent text-stone-400 hover:text-stone-700'
+                   }`}
+                 >
+                   <tab.icon size={16} />
+                   {tab.label}
+                 </button>
+              ))}
+           </div>
         </div>
       </section>
 
@@ -248,12 +305,12 @@ export default function PortfolioPage({ params }) {
                             R$ {parseFloat(album.price).toFixed(2)}
                           </span>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/15 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.1), transparent, transparent)' }} />
                       </div>
                       <div className="p-5 md:p-6">
-                        <h3 className="font-semibold text-stone-900 group-hover:text-stone-700 transition-colors flex items-center justify-between">
-                          <span>{album.title}</span>
-                          <ArrowRight className="w-4 h-4 text-stone-300 group-hover:text-stone-900 group-hover:translate-x-1 transition-all duration-300 flex-shrink-0 ml-3" />
+                        <h3 className="font-semibold text-stone-900 group-hover:text-stone-700 transition-colors flex items-center justify-between gap-2">
+                          <span className="truncate flex-1 min-w-0">{album.title}</span>
+                          <ArrowRight className="w-4 h-4 text-stone-300 group-hover:text-stone-900 group-hover:translate-x-1 transition-all duration-300 flex-shrink-0" />
                         </h3>
                         {album.description && (
                           <p className="mt-2 text-sm text-stone-500 line-clamp-2 leading-relaxed font-light">
@@ -290,61 +347,76 @@ export default function PortfolioPage({ params }) {
         )}
 
         {/* TAB: ABOUT ME */}
-        {activeTab === 'about' && (
+        {activeTab === 'about' && photographer.bio && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto mt-6">
              <div className="bg-white p-6 md:p-12 rounded-3xl border border-stone-200 shadow-sm">
-                <h2 className="text-3xl font-bold tracking-tight mb-6">Sobre {photographer.name}</h2>
-                <div className="space-y-4 text-stone-600 leading-relaxed text-lg font-light">
-                  <p>
-                    Com vasta experiência em capturar a beleza natural e a emoção autêntica dos momentos, 
-                    cada clique busca não apenas registrar, mas contar uma história. 
-                  </p>
-                  <p>
-                    Acredito que a fotografia vai muito além da técnica. É sobre criar uma conexão real com 
-                    cada pessoa na frente da lente, garantindo que o resultado final seja uma lembrança 
-                    verdadeira e inesquecível.
-                  </p>
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">Sobre {photographer.name}</h2>
+                 <div className="text-stone-600 leading-relaxed text-base md:text-lg font-light whitespace-pre-line">
+                  {photographer.bio}
                 </div>
-                <div className="mt-8 flex flex-wrap gap-4">
-                  <button className="flex items-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-full hover:bg-stone-200 transition-colors text-sm font-medium">
-                    <Instagram size={18} /> Instagram
-                  </button>
-                  <button className="flex items-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-full hover:bg-stone-200 transition-colors text-sm font-medium">
-                    <Twitter size={18} /> Twitter
-                  </button>
-                </div>
+                {(photographer.instagram || photographer.twitter || photographer.phone || photographer.whatsapp) && (
+                  <div className="mt-8 flex flex-wrap gap-4">
+                    {photographer.phone && (
+                      <a href={`tel:${photographer.phone}`}
+                        className="flex items-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-full hover:bg-stone-200 transition-colors text-sm font-medium">
+                        <Phone size={18} /> {photographer.phone}
+                      </a>
+                    )}
+                    {photographer.whatsapp && (
+                      <a href={photographer.whatsapp.startsWith('http') ? photographer.whatsapp : `https://wa.me/${photographer.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-full hover:bg-stone-200 transition-colors text-sm font-medium">
+                        <MessageCircle size={18} /> WhatsApp
+                      </a>
+                    )}
+                    {photographer.instagram && (
+                      <a href={photographer.instagram} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-full hover:bg-stone-200 transition-colors text-sm font-medium">
+                        <Instagram size={18} /> Instagram
+                      </a>
+                    )}
+                    {photographer.twitter && (
+                      <a href={photographer.twitter} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 bg-stone-100 text-stone-800 px-6 py-3 rounded-full hover:bg-stone-200 transition-colors text-sm font-medium">
+                        <Twitter size={18} /> Twitter
+                      </a>
+                    )}
+                  </div>
+                )}
              </div>
           </div>
         )}
 
+
+
         {/* TAB: SCHEDULE */}
-        {activeTab === 'schedule' && (
+        {activeTab === 'schedule' && schedule?.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl mx-auto mt-6">
             <div className="space-y-4">
               {schedule.map((event) => (
                 <div key={event.id} className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-stone-300 transition-colors">
                   <div>
                     <h3 className="text-lg font-semibold text-stone-900">{event.title}</h3>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-stone-500 font-light">
-                      <span className="flex items-center gap-1.5"><Calendar size={14} /> {event.date}</span>
-                      <span className="flex items-center gap-1.5"><MapPin size={14} /> {event.location}</span>
+                    <div className="flex items-center gap-4 mt-2 text-sm text-stone-500 font-light flex-wrap">
+                      <span className="flex items-center gap-1.5"><Calendar size={14} /> {new Date(event.event_date).toLocaleDateString('pt-BR')}</span>
+                      {event.location && <span className="flex items-center gap-1.5"><MapPin size={14} /> {event.location}</span>}
                     </div>
                   </div>
-                  <div className={`px-4 py-2 rounded-full text-[11px] font-semibold tracking-wider uppercase self-start sm:self-center ${
-                    event.status === 'Agenda Aberta' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                    event.status === 'Confirmado' ? 'bg-stone-100 text-stone-600 border border-stone-200' :
-                    'bg-rose-50 text-rose-600 border border-rose-100'
-                  }`}>
-                    {event.status}
-                  </div>
+                  {event.status && (
+                    <div className={`px-4 py-2 rounded-full text-[11px] font-semibold tracking-wider uppercase self-start sm:self-center ${
+                      event.status === 'Agenda Aberta' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                      event.status === 'Confirmado' ? 'bg-stone-100 text-stone-600 border border-stone-200' :
+                      'bg-rose-50 text-rose-600 border border-rose-100'
+                    }`}>
+                      {event.status}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-            
             <div className="mt-10 text-center p-8 bg-stone-100 rounded-3xl border border-stone-200">
               <h3 className="text-xl font-semibold mb-2">Gostaria de agendar um ensaio?</h3>
               <p className="text-stone-500 mb-6 text-sm">Entre em contato para consultar datas disponíveis.</p>
-              <button 
+              <button
                 onClick={() => setActiveTab('contact')}
                 className="bg-stone-900 text-white px-6 py-2.5 rounded-full text-sm font-medium hover:bg-stone-800 transition-colors"
               >
@@ -393,8 +465,8 @@ export default function PortfolioPage({ params }) {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-stone-200 py-8 bg-white mt-10">
-        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs text-stone-400">
+      <footer className="relative bg-stone-50 pt-16 pb-8 mt-10 before:content-[''] before:absolute before:inset-x-0 before:bottom-0 before:h-full before:bg-gradient-to-b before:from-transparent before:to-black/30">
+        <div className="relative z-10 max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-1 sm:gap-0 text-xs text-stone-500">
           <span>&copy; {new Date().getFullYear()} {photographer.name}</span>
           <span className="font-light">Criado com MyPhotoLife</span>
         </div>

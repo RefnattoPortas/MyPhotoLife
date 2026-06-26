@@ -53,12 +53,18 @@ export const api = {
     list: () => request('/orders'),
   },
   portfolio: {
-    get: (slug) => request(`/portfolio/${slug}`),
-    getAlbum: (slug, id) => request(`/portfolio/${slug}/albums/${id}`),
+    get: (slug) => request(`/portfolio?slug=${encodeURIComponent(slug)}`),
+    getAlbum: (slug, id) => request(`/portfolio/album?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(id)}`),
   },
   tenant: {
     stats: () => request('/tenant/stats'),
     profile: () => request('/tenant/profile'),
     update: (data) => request('/tenant/profile', { method: 'PATCH', body: JSON.stringify(data) }),
+  },
+  schedule: {
+    list: () => request('/schedule'),
+    create: (data) => request('/schedule', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => request(`/schedule?id=${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id) => request(`/schedule?id=${id}`, { method: 'DELETE' }),
   },
 };

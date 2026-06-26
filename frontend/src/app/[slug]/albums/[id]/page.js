@@ -17,52 +17,70 @@ export default function AlbumPage({ params }) {
   useEffect(() => {
     api.portfolio.getAlbum(slug, id)
       .then(setData)
-      .catch(() => {
-        setData({
-          album: {
-            id,
-            title: 'Ensaios Externos',
-            description: 'Sessões ao ar livre com luz natural. Fotos espontâneas e cheias de personalidade.',
-            price: '149.90',
-            is_for_sale: true,
-            is_public: true,
-          },
-          media: Array.from({ length: 12 }, (_, i) => ({
-            id: `m${i}`,
-            filename: `foto_${i + 1}.jpg`,
-            optimized_path: null,
-            thumbnail_path: null,
-            width: 1200,
-            height: Math.floor(800 + Math.random() * 600),
-            is_for_sale: i % 3 === 0,
-            price: (i % 3 === 0) ? '29.90' : '0',
-            display_order: i,
-          })),
-        });
-      })
+      .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [slug, id]);
 
   useEffect(() => {
     if (!data?.theme) return;
     const theme = data.theme;
-    const root = document.documentElement;
-    if (theme.bg_color) root.style.setProperty('--color-bg', theme.bg_color);
-    if (theme.hover_color) root.style.setProperty('--color-hover', theme.hover_color);
+    const bg = theme.bg_color || '#fafaf9';
+    const hover = theme.hover_color || '#1c1917';
+    const rawText = theme.text_color || '';
+    const isDark = /^#[0-9a-f]{6}$/i.test(bg) && parseInt(bg.replace('#',''),16) < 0x808080;
+    const textColor = /^#[0-9a-f]{6}$/i.test(rawText) ? rawText : (isDark ? '#f5f5f4' : '#1c1917');
+    const textSecondary = isDark ? '#a8a29e' : '#78716c';
+    const surface = isDark ? '#2d2a27' : '#ffffff';
+    const border = isDark ? '#3d3a37' : '#e7e5e4';
+
+    let styleEl = document.getElementById('portfolio-theme');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'portfolio-theme';
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `
+      .portfolio-root {
+        background-color: ${bg} !important;
+        color: ${textColor} !important;
+      }
+      .portfolio-root header { background-color: ${bg} !important; backdrop-filter: blur(12px) !important; }
+      .portfolio-root .bg-stone-50,
+      .portfolio-root .bg-stone-100 { background-color: ${bg} !important; }
+      .portfolio-root .bg-white { background-color: ${surface} !important; }
+      .portfolio-root .bg-stone-900 { background-color: ${hover} !important; }
+      .portfolio-root .text-stone-900,
+      .portfolio-root .text-stone-800 { color: ${textColor} !important; }
+      .portfolio-root .text-stone-500,
+      .portfolio-root .text-stone-400 { color: ${textSecondary} !important; }
+      .portfolio-root .border-stone-200,
+      .portfolio-root .border-stone-100 { border-color: ${border} !important; }
+      .portfolio-root .hover\\:text-stone-900:hover { color: ${textColor} !important; }
+      .portfolio-root .hover\\:bg-stone-800:hover { background-color: ${adjustColor(hover, -20)} !important; }
+    `;
+
     if (theme.font && theme.font !== 'Inter') {
-      root.style.setProperty('--font-family', `'${theme.font}', system-ui, sans-serif`);
-      const id = `gf-${theme.font.replace(/\s+/g, '-')}`;
-      if (!document.getElementById(id)) {
+      styleEl.textContent += `.portfolio-root { font-family: '${theme.font}', system-ui, sans-serif !important; }`;
+      const linkId = `gf-${theme.font.replace(/\s+/g, '-')}`;
+      if (!document.getElementById(linkId)) {
         const link = document.createElement('link');
-        link.id = id;
+        link.id = linkId;
         link.rel = 'stylesheet';
         link.href = `https://fonts.googleapis.com/css2?family=${theme.font.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap`;
         document.head.appendChild(link);
       }
-    } else if (theme.font === 'Inter') {
-      root.style.setProperty('--font-family', `'Inter', system-ui, sans-serif`);
+    } else {
+      styleEl.textContent += `.portfolio-root { font-family: 'Inter', system-ui, sans-serif !important; }`;
     }
   }, [data]);
+
+  function adjustColor(hex, amount) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+    const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));
+    const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+  }
 
   const handleBuy = (item) => {
     setCart((prev) => {
@@ -113,7 +131,7 @@ export default function AlbumPage({ params }) {
   const cartTotal = cart.reduce((acc, item) => acc + parseFloat(item.price || 0), 0);
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 font-sans">
+    <div className="portfolio-root min-h-screen bg-stone-50 text-stone-900 font-sans">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-white/60 backdrop-blur-lg border-b border-stone-100/80 transition-all duration-500">
         <div className="max-w-6xl mx-auto px-6 h-16 md:h-20 flex items-center justify-between">

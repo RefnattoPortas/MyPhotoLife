@@ -178,12 +178,12 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-200 bg-white py-10">
+      <footer className="bg-gradient-to-b from-zinc-900 via-zinc-950 to-black pt-16 pb-8">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-zinc-900 font-bold text-xl">
-            <Camera className="text-zinc-900" /> MyPhotoLife
+          <div className="flex items-center gap-2 text-white font-bold text-xl">
+            <Camera className="text-white" /> MyPhotoLife
           </div>
-          <p className="text-zinc-500 text-sm">
+          <p className="text-zinc-400 text-sm">
             &copy; {new Date().getFullYear()} MyPhotoLife. Todos os direitos reservados.
           </p>
         </div>
