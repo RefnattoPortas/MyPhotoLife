@@ -235,7 +235,7 @@ export default function PortfolioPage({ params }) {
         <div className="absolute inset-0 bg-[radial-gradient(#d6d3d1_1px,transparent_1px)] [background-size:20px_20px] opacity-40" />
         <div className="relative max-w-4xl mx-auto px-6 text-center">
           <div className="inline-flex items-center justify-center w-20 sm:w-24 h-20 sm:h-24 rounded-full bg-stone-100 border-4 border-white shadow-lg mb-6 overflow-hidden animate-fade-in">
-             <img src="https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&w=200&auto=format&fit=crop" className="w-full h-full object-cover" alt={photographer.name}/>
+             <img src={photographer.theme?.profile_photo_url || "https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&w=200&auto=format&fit=crop"} className="w-full h-full object-cover" alt={photographer.name}/>
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-stone-900 leading-[1.08] animate-fade-up">
             {photographer.name}

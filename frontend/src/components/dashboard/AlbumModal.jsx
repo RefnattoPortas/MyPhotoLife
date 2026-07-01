@@ -30,6 +30,8 @@ export default function AlbumModal({ mode, album, onClose, onSave }) {
         ...form,
         price: form.is_for_sale ? parseFloat(form.price || 0) : 0,
       });
+    } catch (err) {
+      alert(err.message || 'Erro ao salvar álbum');
     } finally {
       setSaving(false);
     }

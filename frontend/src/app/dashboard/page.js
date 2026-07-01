@@ -45,7 +45,7 @@ export default function DashboardPage() {
   };
 
   // Config form
-  const [configForm, setConfigForm] = useState({ name: '', bio: '', headline: '', pix_key: '', pix_key_type: 'random', instagram: '', twitter: '', phone: '', whatsapp: '', theme_config: { bg_color: '#fafaf9', hover_color: '#1c1917', text_color: '#1c1917', font: 'Inter', cover_url: '' } });
+  const [configForm, setConfigForm] = useState({ name: '', bio: '', headline: '', pix_key: '', pix_key_type: 'random', instagram: '', twitter: '', phone: '', whatsapp: '', theme_config: { bg_color: '#fafaf9', hover_color: '#1c1917', text_color: '#1c1917', font: 'Inter', cover_url: '', profile_photo_url: '' } });
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -98,6 +98,7 @@ export default function DashboardPage() {
             text_color: tc.text_color || '#1c1917',
             font: tc.font || 'Inter',
             cover_url: tc.cover_url || '',
+            profile_photo_url: tc.profile_photo_url || '',
           },
         });
       }
@@ -126,9 +127,13 @@ export default function DashboardPage() {
 
   const handleDeleteAlbum = async (id) => {
     if (!confirm('Excluir este álbum e todas as suas fotos?')) return;
-    await api.albums.delete(id);
-    if (selectedAlbum?.id === id) setSelectedAlbum(null);
-    loadData();
+    try {
+      await api.albums.delete(id);
+      if (selectedAlbum?.id === id) setSelectedAlbum(null);
+      loadData();
+    } catch (err) {
+      alert(err.message || 'Erro ao excluir álbum');
+    }
   };
 
   const openAlbum = async (album) => {
@@ -138,8 +143,12 @@ export default function DashboardPage() {
   };
 
   const handleSaveProfile = async () => {
-    await api.tenant.update(configForm);
-    alert('Configurações salvas!');
+    try {
+      await api.tenant.update(configForm);
+      alert('Configurações salvas!');
+    } catch (err) {
+      alert(err.message || 'Erro ao salvar configurações');
+    }
   };
 
   function ScheduleForm({ onSaved }) {
@@ -780,6 +789,7 @@ export default function DashboardPage() {
                               const token = localStorage.getItem('auth_token');
                               const formData = new FormData();
                               formData.append('file', file);
+                              formData.append('type', 'cover');
                               try {
                                 const res = await fetch('/api/tenant/upload', {
                                   method: 'POST',
@@ -806,6 +816,60 @@ export default function DashboardPage() {
                             </button>
                           )}
                           <p className="mt-1 text-xs text-zinc-400">Recomendado: 1920x600px</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Foto do Perfil */}
+                    <div>
+                      <label className="block text-sm font-medium text-zinc-700 mb-2">Foto do Perfil</label>
+                      <div className="flex flex-col sm:flex-row items-start gap-4">
+                        <div className="w-full sm:w-24 h-48 sm:h-24 rounded-xl border border-zinc-200 overflow-hidden flex-shrink-0 bg-zinc-100">
+                          {configForm.theme_config.profile_photo_url ? (
+                            <img src={configForm.theme_config.profile_photo_url} alt="Perfil" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-zinc-300">
+                              <Camera className="w-8 h-8" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <label className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-600 hover:bg-zinc-50 cursor-pointer transition-colors">
+                            <Camera className="w-4 h-4" />
+                            {configForm.theme_config.profile_photo_url ? 'Trocar imagem' : 'Escolher imagem'}
+                            <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const token = localStorage.getItem('auth_token');
+                              const formData = new FormData();
+                              formData.append('file', file);
+                              formData.append('type', 'profile');
+                              try {
+                                const res = await fetch('/api/tenant/upload', {
+                                  method: 'POST',
+                                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                                  body: formData,
+                                });
+                                const data = await res.json();
+                                if (res.ok) {
+                                  setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, profile_photo_url: data.url } }));
+                                } else {
+                                  alert(data.message || 'Erro ao enviar imagem');
+                                }
+                              } catch {
+                                alert('Erro ao enviar imagem');
+                              }
+                            }} />
+                          </label>
+                          {configForm.theme_config.profile_photo_url && (
+                            <button
+                              onClick={() => setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, profile_photo_url: '' } }))}
+                              className="mt-2 text-xs text-red-500 hover:text-red-700 transition-colors"
+                            >
+                              Remover foto
+                            </button>
+                          )}
+                          <p className="mt-1 text-xs text-zinc-400">Recomendado: 400x400px</p>
                         </div>
                       </div>
                     </div>
