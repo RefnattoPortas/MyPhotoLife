@@ -1,20 +1,44 @@
 import sharp from 'sharp';
 import { env } from '../config/index.js';
 
-export async function processImage(buffer, _mimeType) {
-  const image = sharp(buffer, {
-    // Remove todos os metadados EXIF (incluindo GPS)
-    pages: 1,
-  });
+const REJECTED_FORMATS = ['heif', 'heic', 'avif', 'tiff', 'bmp', 'gif'];
 
-  const metadata = await image.metadata();
+export async function validateImage(buffer) {
+  let metadata;
+  try {
+    metadata = await sharp(buffer).metadata();
+  } catch {
+    throw Object.assign(new Error('Cannot decode image'), { code: 'DECODE_FAILED' });
+  }
 
-  // Remove metadados sensíveis (GPS, câmera, etc.)
-  const withoutExif = sharp(buffer).withMetadata(false);
+  if (!metadata.width || !metadata.height) {
+    throw Object.assign(new Error('Invalid image dimensions'), { code: 'INVALID_DIMENSIONS' });
+  }
 
-  // Processa imagem otimizada
-  const optimizedBuffer = await withoutExif
-    .rotate() // Corrige orientação baseada em EXIF
+  if (REJECTED_FORMATS.includes(metadata.format)) {
+    throw Object.assign(new Error(`Format ${metadata.format} not supported. Use JPEG, PNG or WebP.`), { code: 'UNSUPPORTED_FORMAT' });
+  }
+
+  if (metadata.width > 10000 || metadata.height > 10000) {
+    throw Object.assign(new Error(`Image dimensions too large (${metadata.width}x${metadata.height}). Max: 10000px`), { code: 'DIMENSIONS_TOO_LARGE' });
+  }
+
+  if (metadata.chromaSubsampling && metadata.chromaSubsampling === '4:2:0') {
+    // OK — common JPEG chroma
+  }
+
+  return metadata;
+}
+
+export async function processImage(buffer) {
+  const metadata = await validateImage(buffer);
+
+  const pipeline = sharp(buffer)
+    .withMetadata(false)
+    .rotate();
+
+  const optimizedBuffer = await pipeline
+    .clone()
     .resize({
       width: env.image.maxWidth,
       withoutEnlargement: true,
@@ -23,9 +47,8 @@ export async function processImage(buffer, _mimeType) {
     .jpeg({ quality: env.image.quality, progressive: true, mozjpeg: true })
     .toBuffer();
 
-  // Cria thumbnail
-  const thumbnailBuffer = await withoutExif
-    .rotate()
+  const thumbnailBuffer = await pipeline
+    .clone()
     .resize(env.image.thumbWidth, env.image.thumbHeight, {
       fit: 'cover',
       position: 'centre',

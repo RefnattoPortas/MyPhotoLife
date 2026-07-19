@@ -15,6 +15,10 @@ async function tenantPlugin(fastify) {
     // Pula resolução de tenant em rotas públicas (registro, login, health)
     if (PUBLIC_ROUTES.some((prefix) => url.startsWith(prefix))) return;
 
+    // Se o usuário já está autenticado, o tenant vem exclusivamente do JWT
+    // O tenant plugin só resolve tenant para rotas públicas (portfólio) que não exigem auth
+    if (request.user) return;
+
     const pool = getPool();
     let identifier;
 

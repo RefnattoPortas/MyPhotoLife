@@ -1,16 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../config/database.js';
-import { uploadOriginal, uploadOptimized } from '../services/storage.js';
+import { uploadOriginal, uploadOptimized, deleteObject } from '../services/storage.js';
 import { processImage } from '../services/image.js';
 import { notFound, badRequest } from '../utils/errors.js';
 import { extname } from 'path';
 
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'];
 const ALLOWED_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
-const MAX_DIMENSION = 10000;
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-// Assinaturas magic bytes para validar tipo real do arquivo
 const MAGIC_BYTES = {
   jpeg: [[0xFF, 0xD8, 0xFF]],
   png: [[0x89, 0x50, 0x4E, 0x47]],
@@ -45,87 +43,96 @@ export default async function mediaRoutes(fastify) {
     const tenantId = request.tenantId;
     const albumId = request.query.album_id || null;
 
-    const data = await request.file();
-    if (!data) throw badRequest('Arquivo é obrigatório');
-
-    const ext = extname(data.filename).toLowerCase();
-    if (!ALLOWED_EXT.includes(ext)) {
-      throw badRequest(`Tipo de arquivo não suportado: ${ext}. Permitidos: ${ALLOWED_EXT.join(', ')}`);
+    if (albumId) {
+      const pool = getPool();
+      const [album] = await pool.execute(
+        'SELECT id FROM albums WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL LIMIT 1',
+        [albumId, tenantId],
+      );
+      if (album.length === 0) throw notFound('Album not found or does not belong to you');
     }
+
+    const data = await request.file().catch(() => null);
+    if (!data) throw badRequest('File is required');
 
     const buffer = await data.toBuffer();
-
-    if (buffer.length === 0) throw badRequest('Arquivo vazio');
-    if (buffer.length > MAX_FILE_SIZE) {
-      throw badRequest(`Arquivo muito grande. Máximo: ${MAX_FILE_SIZE / 1024 / 1024}MB`);
-    }
-
-    const mimeType = data.mimetype;
-    if (!ALLOWED_MIME.includes(mimeType)) {
-      throw badRequest(`Tipo MIME não suportado: ${mimeType}`);
-    }
-
-    // Validar assinatura real do arquivo (magic bytes)
-    const detectedMime = detectMimeFromBuffer(buffer);
-    if (!detectedMime) {
-      throw badRequest('Arquivo não parece ser uma imagem válida');
-    }
-
-    const safeFilename = sanitizeFilename(data.filename);
-
-    // Processa imagem: remove metadados, otimiza, cria thumbnail
-    const { optimizedBuffer, thumbnailBuffer, width, height, sizeBytes } = await processImage(buffer, mimeType);
-
-    if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-      throw badRequest(`Dimensões da imagem muito grandes (${width}x${height}). Máximo: ${MAX_DIMENSION}px`);
-    }
-
-    const fileId = uuidv4();
-    const storageKey = `${tenantId}/${fileId}${ext}`;
-    const optimizedKey = `${tenantId}/${fileId}_optimized.jpg`;
-    const thumbKey = `${tenantId}/${fileId}_thumb.jpg`;
-
-    await Promise.all([
-      uploadOriginal(storageKey, buffer, mimeType),
-      uploadOptimized(optimizedKey, optimizedBuffer, 'image/jpeg'),
-      uploadOptimized(thumbKey, thumbnailBuffer, 'image/jpeg'),
-    ]);
-
-    const pool = getPool();
-    await pool.execute(
-      `INSERT INTO media_files
-        (id, tenant_id, album_id, filename, original_path, optimized_path, thumbnail_path,
-         mime_type, size_bytes, width, height, display_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [fileId, tenantId, albumId, safeFilename, storageKey, optimizedKey, thumbKey,
-       mimeType, sizeBytes, width, height, 0],
-    );
-
+    const result = await doUpload(buffer, data.filename, data.mimetype, tenantId, albumId);
     reply.status(201).send({
-      id: fileId,
-      filename: safeFilename,
-      optimized_url: `/cdn/${optimizedKey}`,
-      thumbnail_url: `/cdn/${thumbKey}`,
-      width,
-      height,
-      size_bytes: sizeBytes,
+      id: result.id,
+      filename: result.filename,
+      optimized_url: result.optimized_url,
+      thumbnail_url: result.thumbnail_url,
+      width: result.width,
+      height: result.height,
+      size_bytes: result.size_bytes,
     });
   });
 
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params;
     const tenantId = request.tenantId;
+    const userId = request.user?.id || null;
     const pool = getPool();
 
     const [rows] = await pool.execute(
-      'SELECT id FROM media_files WHERE id = ? AND tenant_id = ? LIMIT 1',
+      'SELECT id, original_path, optimized_path, thumbnail_path, album_id FROM media_files WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL LIMIT 1',
       [id, tenantId],
     );
-    if (rows.length === 0) throw notFound('Mídia não encontrada');
+    if (rows.length === 0) throw notFound('Media not found');
 
-    await pool.execute('DELETE FROM media_files WHERE id = ? AND tenant_id = ?', [id, tenantId]);
+    const media = rows[0];
 
-    reply.status(200).send({ id, deleted: true });
+    const [activeOrders] = await pool.execute(
+      `SELECT 1 FROM order_items oi
+       JOIN orders o ON o.id = oi.order_id
+       WHERE oi.media_file_id = ? AND o.status IN ('pending','paid')
+       LIMIT 1`,
+      [id],
+    );
+    if (activeOrders.length > 0) {
+      throw conflict('Esta foto possui pedidos em andamento. Não é possível excluí-la.');
+    }
+
+    const conn = await pool.getConnection();
+    const deletionErrors = [];
+
+    try {
+      await conn.beginTransaction();
+
+      await conn.execute('DELETE FROM order_items WHERE media_file_id = ?', [id]);
+
+      const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      await conn.execute(
+        'UPDATE media_files SET deleted_at = ?, deleted_by = ? WHERE id = ? AND tenant_id = ?',
+        [now, userId, id, tenantId],
+      );
+
+      const auditId = uuidv4();
+      await conn.execute(
+        `INSERT INTO audit_log (id, tenant_id, user_id, action, entity_type, entity_id, details)
+         VALUES (?, ?, ?, 'delete', 'media', ?, ?)`,
+        [auditId, tenantId, userId, id, JSON.stringify({ filename: media.original_path })],
+      );
+
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+
+    await Promise.allSettled([
+      deleteObject(media.original_path, true).catch(() => deletionErrors.push('original')),
+      deleteObject(media.optimized_path, false).catch(() => deletionErrors.push('optimized')),
+      deleteObject(media.thumbnail_path, false).catch(() => deletionErrors.push('thumbnail')),
+    ]);
+
+    reply.status(200).send({
+      id,
+      deleted: true,
+      storage_errors: deletionErrors.length > 0 ? deletionErrors : undefined,
+    });
   });
 
   fastify.patch('/:id', async (request, reply) => {
@@ -135,10 +142,18 @@ export default async function mediaRoutes(fastify) {
     const pool = getPool();
 
     const [existing] = await pool.execute(
-      'SELECT id FROM media_files WHERE id = ? AND tenant_id = ? LIMIT 1',
+      'SELECT id FROM media_files WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL LIMIT 1',
       [id, tenantId],
     );
-    if (existing.length === 0) throw notFound('Mídia não encontrada');
+    if (existing.length === 0) throw notFound('Media not found');
+
+    if (album_id) {
+      const [album] = await pool.execute(
+        'SELECT id FROM albums WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL LIMIT 1',
+        [album_id, tenantId],
+      );
+      if (album.length === 0) throw notFound('Album not found');
+    }
 
     const updates = [];
     const params = [];
@@ -158,4 +173,92 @@ export default async function mediaRoutes(fastify) {
 
     reply.status(200).send({ id, updated: true });
   });
+}
+
+async function doUpload(buffer, originalFilename, mimeType, tenantId, albumId) {
+  if (buffer.length === 0) throw badRequest('Empty file');
+  if (buffer.length > MAX_FILE_SIZE) {
+    throw badRequest(`File too large. Maximum: ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+  }
+
+  const ext = extname(originalFilename).toLowerCase();
+  if (!ALLOWED_EXT.includes(ext)) {
+    throw badRequest(`File type not supported: ${ext}. Allowed: ${ALLOWED_EXT.join(', ')}`);
+  }
+
+  if (!ALLOWED_MIME.includes(mimeType)) {
+    throw badRequest(`MIME type not supported: ${mimeType}`);
+  }
+
+  const detectedMime = detectMimeFromBuffer(buffer);
+  if (!detectedMime) {
+    throw badRequest('File does not appear to be a valid image');
+  }
+
+  const safeFilename = sanitizeFilename(originalFilename);
+
+  let processed;
+  try {
+    processed = await processImage(buffer);
+  } catch (err) {
+    if (err.code === 'DECODE_FAILED') throw badRequest('Cannot decode image: file may be corrupted');
+    if (err.code === 'UNSUPPORTED_FORMAT') throw badRequest(err.message);
+    throw badRequest('Image processing failed: ' + err.message);
+  }
+
+  const { optimizedBuffer, thumbnailBuffer, width, height, sizeBytes } = processed;
+
+  const fileId = uuidv4();
+  const storageKey = `${tenantId}/${fileId}${ext}`;
+  const optimizedKey = `${tenantId}/${fileId}_optimized.jpg`;
+  const thumbKey = `${tenantId}/${fileId}_thumb.jpg`;
+
+  try {
+    await Promise.all([
+      uploadOriginal(storageKey, buffer, mimeType),
+      uploadOptimized(optimizedKey, optimizedBuffer, 'image/jpeg'),
+      uploadOptimized(thumbKey, thumbnailBuffer, 'image/jpeg'),
+    ]);
+  } catch (err) {
+    await Promise.allSettled([
+      deleteObject(storageKey, true).catch(() => {}),
+      deleteObject(optimizedKey, false).catch(() => {}),
+      deleteObject(thumbKey, false).catch(() => {}),
+    ]);
+    throw Object.assign(err, { message: 'Storage upload failed: ' + err.message });
+  }
+
+  const pool = getPool();
+  try {
+    await pool.execute(
+      `INSERT INTO media_files
+        (id, tenant_id, album_id, filename, original_path, optimized_path, thumbnail_path,
+         mime_type, size_bytes, width, height, display_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [fileId, tenantId, albumId, safeFilename, storageKey, optimizedKey, thumbKey,
+       mimeType, sizeBytes, width, height, 0],
+    );
+  } catch (err) {
+    await Promise.allSettled([
+      deleteObject(storageKey, true).catch(() => {}),
+      deleteObject(optimizedKey, false).catch(() => {}),
+      deleteObject(thumbKey, false).catch(() => {}),
+    ]);
+    throw Object.assign(err, { message: 'Database insert failed: ' + err.message });
+  }
+
+  return {
+    _storageKeys: [
+      { key: storageKey, isOriginal: true },
+      { key: optimizedKey, isOriginal: false },
+      { key: thumbKey, isOriginal: false },
+    ],
+    id: fileId,
+    filename: safeFilename,
+    optimized_url: `/cdn/${optimizedKey}`,
+    thumbnail_url: `/cdn/${thumbKey}`,
+    width,
+    height,
+    size_bytes: sizeBytes,
+  };
 }

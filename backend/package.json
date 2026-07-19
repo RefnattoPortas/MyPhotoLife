@@ -3,38 +3,50 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "migrate": "node migrations/001_initial_schema.js",
+    "migrate": "node migrations/001_initial_schema.js && node migrations/002_schedule_tenant_fields.js && node migrations/003_orders_idempotency.js && node migrations/004_webhook_events.js && node migrations/005_profile_social_fields.js && node migrations/006_contact_email.js && node migrations/007_soft_delete_audit.js",
+    "migrate:003": "node migrations/003_orders_idempotency.js",
+    "migrate:004": "node migrations/004_webhook_events.js",
+    "migrate:005": "node migrations/005_profile_social_fields.js",
+    "migrate:006": "node migrations/006_contact_email.js",
+    "migrate:007": "node migrations/007_soft_delete_audit.js",
     "seed": "node seed.js",
+    "audit": "node scripts/audit-account.js",
+    "reconcile": "node scripts/reconciliation.js",
     "lint": "eslint src/",
     "test": "node --test src/**/*.test.js",
-    "test:watch": "node --test --watch src/**/*.test.js"
+    "test:watch": "node --test --watch src/**/*.test.js",
+    "test:coverage": "npx c8 --reporter=text --reporter=lcov node --test src/**/*.test.js",
+    "test:coverage:html": "npx c8 --reporter=html node --test src/**/*.test.js",
+    "deps:audit": "npm audit --production"
   },
   "dependencies": {
-    "fastify": "^4.28.1",
-    "@fastify/cors": "^9.0.1",
-    "@fastify/jwt": "^9.1.0",
-    "@fastify/multipart": "^8.3.0",
-    "@fastify/static": "^7.0.4",
-    "@fastify/rate-limit": "^9.1.0",
-    "mysql2": "^3.11.0",
-    "dotenv": "^16.4.5",
-    "sharp": "^0.33.5",
-    "@aws-sdk/client-s3": "^3.600.0",
-    "@aws-sdk/s3-request-presigner": "^3.600.0",
-    "uuid": "^11.1.0",
-    "bcryptjs": "^2.4.3",
-    "zod": "^3.23.8"
+    "@aws-sdk/client-s3": "^3.1090.0",
+    "@aws-sdk/s3-request-presigner": "^3.1090.0",
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/jwt": "^10.2.0",
+    "@fastify/multipart": "^10.1.0",
+    "@fastify/rate-limit": "^11.1.0",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.10.0",
+    "mysql2": "^3.23.1",
+    "nodemailer": "^9.0.3",
+    "sharp": "^0.35.3",
+    "uuid": "^14.0.1"
   },
   "overrides": {
     "fast-jwt": "6.2.4",
-    "fast-uri": "3.1.2",
-    "fast-json-stringify": "6.0.1",
-    "js-yaml": "4.1.2"
+    "fast-uri": "4.1.1",
+    "fast-json-stringify": "7.0.1"
   },
   "devDependencies": {
-    "eslint": "^8.57.0"
+    "eslint": "^9.27.0"
   }
 }

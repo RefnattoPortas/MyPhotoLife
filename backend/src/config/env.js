@@ -57,6 +57,14 @@ const env = {
     thumbHeight: parseInt(process.env.THUMBNAIL_HEIGHT || '300', 10),
   },
 
+  mail: {
+    host: process.env.SMTP_HOST || '',
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.SMTP_FROM || 'noreply@myphotolife.com',
+  },
+
   cors: {
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   },

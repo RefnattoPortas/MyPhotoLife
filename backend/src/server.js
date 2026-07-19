@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
+import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import { env, connectDatabase } from './config/index.js';
@@ -12,8 +13,9 @@ import mediaRoutes from './routes/media.js';
 import orderRoutes from './routes/orders.js';
 import portfolioRoutes from './routes/portfolio.js';
 import tenantRoutes from './routes/tenant.js';
+import scheduleRoutes from './routes/schedule.js';
 
-async function buildApp() {
+export async function buildApp() {
   const app = Fastify({
     logger: env.nodeEnv !== 'test',
     trustProxy: true,
@@ -48,6 +50,24 @@ async function buildApp() {
     credentials: true,
   });
 
+  await app.register(cookie, {
+    secret: env.jwt.secret,
+    parseOptions: {},
+  });
+
+  const COOKIE_NAME = 'auth_token';
+  const COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: env.nodeEnv === 'production',
+    sameSite: 'strict',
+    path: '/',
+    signed: true,
+    maxAge: 60 * 60 * 24 * 7,
+  };
+
+  app.decorate('cookieName', COOKIE_NAME);
+  app.decorate('cookieOptions', COOKIE_OPTIONS);
+
   await app.register(jwt, {
     secret: env.jwt.secret,
     sign: { expiresIn: env.jwt.expiresIn },
@@ -68,6 +88,7 @@ async function buildApp() {
   await app.register(orderRoutes, { prefix: '/api/orders' });
   await app.register(portfolioRoutes, { prefix: '/api/portfolio' });
   await app.register(tenantRoutes, { prefix: '/api/tenant' });
+  await app.register(scheduleRoutes, { prefix: '/api/schedule' });
 
   app.get('/api/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 

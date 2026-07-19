@@ -21,3 +21,11 @@ export function forbidden(message = 'Forbidden') {
 export function badRequest(message = 'Bad request') {
   return new AppError(message, 400, 'BAD_REQUEST');
 }
+
+export function tooManyRequests(message = 'Too many requests') {
+  return new AppError(message, 429, 'TOO_MANY_REQUESTS');
+}
+
+export function conflict(message = 'Conflict') {
+  return new AppError(message, 409, 'CONFLICT');
+}

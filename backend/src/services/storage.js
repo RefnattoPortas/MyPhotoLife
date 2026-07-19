@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '../config/index.js';
 
@@ -39,6 +39,33 @@ export async function uploadOptimized(key, buffer, mimeType) {
     ContentType: mimeType,
     CacheControl: 'public, max-age=31536000, immutable',
   }));
+}
+
+export async function deleteObject(key, isOriginal = true) {
+  const s3 = getS3();
+  const Bucket = isOriginal ? env.storage.bucketOriginals : env.storage.bucketOptimized;
+  await s3.send(new DeleteObjectCommand({ Bucket, Key: key }));
+}
+
+export async function deleteObjects(keys) {
+  const s3 = getS3();
+  const originalKeys = keys.filter(k => k.isOriginal !== false).map(k => ({ Key: k.key }));
+  const optimizedKeys = keys.filter(k => k.isOriginal === false).map(k => ({ Key: k.key }));
+
+  const promises = [];
+  if (originalKeys.length > 0) {
+    promises.push(s3.send(new DeleteObjectsCommand({
+      Bucket: env.storage.bucketOriginals,
+      Delete: { Objects: originalKeys, Quiet: true },
+    })));
+  }
+  if (optimizedKeys.length > 0) {
+    promises.push(s3.send(new DeleteObjectsCommand({
+      Bucket: env.storage.bucketOptimized,
+      Delete: { Objects: optimizedKeys, Quiet: true },
+    })));
+  }
+  await Promise.allSettled(promises);
 }
 
 export async function generateSignedUrl(key, expiresIn = 3600) {

@@ -22,8 +22,13 @@ CREATE TABLE tenants (
   pix_key         VARCHAR(255),
   pix_key_type    ENUM('cpf','cnpj','email','phone','random') DEFAULT 'random',
   bio            TEXT,
-  gateway_config  JSON,
+  headline        VARCHAR(255) DEFAULT NULL,
   theme_config    JSON,
+  instagram       VARCHAR(255) DEFAULT NULL,
+  twitter         VARCHAR(255) DEFAULT NULL,
+  phone           VARCHAR(30) DEFAULT NULL,
+  whatsapp        VARCHAR(30) DEFAULT NULL,
+  gateway_config  JSON,
   storage_quota   BIGINT       NOT NULL DEFAULT 1073741824,
   storage_used    BIGINT       NOT NULL DEFAULT 0,
   is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
@@ -155,3 +160,21 @@ CREATE TABLE order_items (
   INDEX idx_items_order (order_id),
   INDEX idx_items_media (media_file_id)
 ) ENGINE=InnoDB;
+
+-- -----------------------------------------------------------
+-- 7. SCHEDULE (Agenda de Eventos)
+-- -----------------------------------------------------------
+CREATE TABLE schedule (
+  id              CHAR(36) PRIMARY KEY,
+  tenant_id       CHAR(36)     NOT NULL,
+  title           VARCHAR(255) NOT NULL,
+  event_date      DATE NOT NULL,
+  location        VARCHAR(255) DEFAULT NULL,
+  status          VARCHAR(50) NOT NULL DEFAULT 'Agenda Aberta',
+  created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_schedule_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+  INDEX idx_schedule_tenant (tenant_id),
+  INDEX idx_schedule_date (tenant_id, event_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
