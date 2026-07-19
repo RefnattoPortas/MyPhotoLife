@@ -22,6 +22,20 @@ function normalizeEmail(email) {
   return normalized;
 }
 
+function getPasswordStrength(password) {
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[a-z]/.test(password)) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^a-zA-Z0-9]/.test(password)) score++;
+
+  if (score <= 2) return { level: 'fraca', label: 'Fraca' };
+  if (score <= 4) return { level: 'media', label: 'Média' };
+  return { level: 'forte', label: 'Forte' };
+}
+
 function validateSlug(slug) {
   if (!slug || typeof slug !== 'string') return 'Slug é obrigatório';
   const s = slug.toLowerCase().trim();
@@ -29,6 +43,10 @@ function validateSlug(slug) {
   if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(s)) return 'Slug deve conter apenas letras minúsculas, números e hífens, sem hífen no início ou fim';
   if (RESERVED_SLUGS.includes(s)) return `Slug "${s}" é reservado pelo sistema`;
   return null;
+}
+
+function setTokenCookie(fastify, reply, token) {
+  reply.setCookie(fastify.cookieName, token, fastify.cookieOptions);
 }
 
 export default async function authRoutes(fastify) {
@@ -39,7 +57,8 @@ export default async function authRoutes(fastify) {
       throw badRequest('Nome, email, senha e slug são obrigatórios');
     }
 
-    if (name.length < 2 || name.length > 100) {
+    const normalizedName = name.trim();
+    if (normalizedName.length < 2 || normalizedName.length > 100) {
       throw badRequest('Nome deve ter entre 2 e 100 caracteres');
     }
 
@@ -58,6 +77,13 @@ export default async function authRoutes(fastify) {
 
     if (password_confirm !== undefined && password !== password_confirm) {
       throw badRequest('Senhas não conferem');
+    }
+
+    const passwordStrength = getPasswordStrength(password);
+    if (passwordStrength.level === 'fraca') {
+      throw badRequest(
+        'Senha muito fraca. Use pelo menos 8 caracteres, incluindo maiúsculas, minúsculas, números e caracteres especiais'
+      );
     }
 
     const slugError = validateSlug(slug);
@@ -85,12 +111,12 @@ export default async function authRoutes(fastify) {
 
       await conn.execute(
         'INSERT INTO tenants (id, name, email, slug, subdomain) VALUES (?, ?, ?, ?, ?)',
-        [tenantId, name, normalizedEmail, normalizedSlug, normalizedSlug],
+        [tenantId, normalizedName, normalizedEmail, normalizedSlug, normalizedSlug],
       );
 
       await conn.execute(
         'INSERT INTO users (id, tenant_id, email, password_hash, display_name, role) VALUES (?, ?, ?, ?, ?, ?)',
-        [userId, tenantId, normalizedEmail, passwordHash, name, 'owner'],
+        [userId, tenantId, normalizedEmail, passwordHash, normalizedName, 'owner'],
       );
 
       await conn.commit();
@@ -101,9 +127,12 @@ export default async function authRoutes(fastify) {
         role: 'owner',
       });
 
+      setTokenCookie(fastify, reply, token);
+
       reply.status(201).send({
         token,
-        user: { id: userId, email: normalizedEmail, name, role: 'owner' },
+        csrfToken: token,
+        user: { id: userId, email: normalizedEmail, name: normalizedName, role: 'owner', password_strength: passwordStrength.label },
         tenant: { id: tenantId, slug: normalizedSlug },
       });
     } catch (err) {
@@ -155,8 +184,11 @@ export default async function authRoutes(fastify) {
       role: user.role,
     });
 
+    setTokenCookie(fastify, reply, token);
+
     reply.send({
       token,
+      csrfToken: token,
       user: {
         id: user.id,
         email: user.email,
@@ -169,6 +201,45 @@ export default async function authRoutes(fastify) {
         slug: user.tenant_slug,
       },
     });
+  });
+
+  fastify.post('/logout', async (_request, reply) => {
+    reply.clearCookie(fastify.cookieName, { path: '/' });
+    reply.send({ message: 'Logged out successfully' });
+  });
+
+  fastify.get('/session', { preHandler: [fastify.authenticate] }, async (request) => {
+    const pool = getPool();
+
+    const [users] = await pool.execute(
+      `SELECT u.id, u.email, u.display_name, u.role, u.created_at,
+              t.name AS tenant_name, t.slug AS tenant_slug
+       FROM users u
+       JOIN tenants t ON t.id = u.tenant_id
+       WHERE u.id = ?`,
+      [request.user.sub],
+    );
+
+    if (users.length === 0) {
+      throw unauthorized('Usuário não encontrado');
+    }
+
+    const cookieValue = request.cookies?.[fastify.cookieName];
+    const u = users[0];
+    return {
+      user: {
+        id: u.id,
+        email: u.email,
+        name: u.display_name,
+        role: u.role,
+        created_at: u.created_at,
+      },
+      tenant: {
+        name: u.tenant_name,
+        slug: u.tenant_slug,
+      },
+      csrfToken: cookieValue || null,
+    };
   });
 
   fastify.get('/me', { preHandler: [fastify.authenticate] }, async (request) => {
