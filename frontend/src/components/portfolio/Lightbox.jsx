@@ -34,6 +34,9 @@ export default function Lightbox({ items, currentIndex, onClose, onPrev, onNext,
     <div
       className="fixed inset-0 z-50 bg-black/95 flex flex-col animate-fade-in"
       onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={item.filename || 'Visualizador de fotos'}
     >
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-5 md:px-8 py-4 bg-gradient-to-b from-black/60 to-transparent">

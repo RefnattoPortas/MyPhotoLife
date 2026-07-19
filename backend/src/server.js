@@ -24,6 +24,25 @@ async function buildApp() {
     timeWindow: '1 minute',
   });
 
+  // Rate limit mais restritivo para rotas de autenticação
+  app.register(async function authRateLimit(instance) {
+    await instance.register(rateLimit, {
+      global: false,
+      max: 5,
+      timeWindow: '1 minute',
+      keyGenerator: (request) => request.ip,
+    });
+
+    instance.addHook('onRoute', (routeOptions) => {
+      if (routeOptions.url?.startsWith('/api/auth/')) {
+        const origHandler = routeOptions.preHandler || [];
+        routeOptions.preHandler = Array.isArray(origHandler)
+          ? [...origHandler, instance.rateLimit()]
+          : [instance.rateLimit()];
+      }
+    });
+  });
+
   await app.register(cors, {
     origin: env.cors.origin,
     credentials: true,
@@ -51,6 +70,14 @@ async function buildApp() {
   await app.register(tenantRoutes, { prefix: '/api/tenant' });
 
   app.get('/api/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  // Sanitiza Content-Type para mitigar bypass com tab (GHSA-jx2c-rxcm-jvmq)
+  app.addHook('onRequest', async (request, _reply) => {
+    const ct = request.headers['content-type'];
+    if (ct && ct.includes('\t')) {
+      request.headers['content-type'] = ct.replace(/\t/g, '');
+    }
+  });
 
   app.setErrorHandler((error, request, reply) => {
     const statusCode = error.statusCode || 500;

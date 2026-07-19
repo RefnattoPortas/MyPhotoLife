@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../config/database.js';
-import { notFound, badRequest, forbidden } from '../utils/errors.js';
+import { notFound, badRequest } from '../utils/errors.js';
 
 export default async function albumRoutes(fastify) {
   // Prefixo: /api/albums

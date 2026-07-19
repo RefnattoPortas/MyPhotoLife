@@ -39,28 +39,32 @@ export default function LoginPage() {
         <h1 className="text-2xl font-semibold text-center mb-8">Entrar</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl">{error}</div>
+            <div className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl" role="alert">{error}</div>
           )}
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Email</label>
+            <label htmlFor="login-email" className="block text-sm font-medium text-zinc-700 mb-1">Email</label>
             <input
+              id="login-email"
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors"
               placeholder="seu@email.com"
+              autoComplete="email"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">Senha</label>
+            <label htmlFor="login-password" className="block text-sm font-medium text-zinc-700 mb-1">Senha</label>
             <input
+              id="login-password"
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none transition-colors"
               placeholder="••••••••"
+              autoComplete="current-password"
             />
           </div>
           <button

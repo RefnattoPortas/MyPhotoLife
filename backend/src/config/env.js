@@ -1,5 +1,16 @@
 import 'dotenv/config';
 
+function requireEnv(name, minLength) {
+  const value = process.env[name];
+  if (!value && process.env.NODE_ENV === 'production') {
+    throw new Error(`Variavel obrigatoria ${name} nao definida em producao`);
+  }
+  if (minLength && value && value.length < minLength) {
+    throw new Error(`Variavel ${name} deve ter pelo menos ${minLength} caracteres`);
+  }
+  return value || '';
+}
+
 const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3001', 10),
@@ -14,7 +25,12 @@ const env = {
   },
 
   jwt: {
-    secret: process.env.JWT_SECRET || 'dev-secret',
+    secret: (() => {
+      if (process.env.NODE_ENV === 'production') {
+        return requireEnv('JWT_SECRET', 32);
+      }
+      return process.env.JWT_SECRET || 'dev-secret-change-in-production';
+    })(),
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
 
@@ -26,6 +42,12 @@ const env = {
     bucketOriginals: process.env.STORAGE_BUCKET_ORIGINALS || 'myphotolife-originals',
     bucketOptimized: process.env.STORAGE_BUCKET_OPTIMIZED || 'myphotolife-optimized',
     publicUrl: process.env.STORAGE_PUBLIC_URL || '',
+  },
+
+  pix: {
+    gatewayUrl: process.env.PIX_GATEWAY_URL || '',
+    gatewayApiKey: process.env.PIX_GATEWAY_API_KEY || '',
+    webhookSecret: process.env.PIX_GATEWAY_WEBHOOK_SECRET || '',
   },
 
   image: {

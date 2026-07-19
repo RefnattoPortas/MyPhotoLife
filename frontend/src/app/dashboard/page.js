@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('overview');
+  const [toast, setToast] = useState(null);
 
   // Album modal
   const [albumModal, setAlbumModal] = useState({ open: false, mode: 'create', album: null });
@@ -125,14 +126,20 @@ export default function DashboardPage() {
     loadData();
   }, [albumModal.album, selectedAlbum]);
 
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   const handleDeleteAlbum = async (id) => {
-    if (!confirm('Excluir este álbum e todas as suas fotos?')) return;
+    if (!window.confirm('Excluir este álbum e todas as suas fotos?')) return;
     try {
       await api.albums.delete(id);
       if (selectedAlbum?.id === id) setSelectedAlbum(null);
+      showToast('Álbum excluído com sucesso');
       loadData();
     } catch (err) {
-      alert(err.message || 'Erro ao excluir álbum');
+      showToast(err.message || 'Erro ao excluir álbum', 'error');
     }
   };
 
@@ -145,9 +152,9 @@ export default function DashboardPage() {
   const handleSaveProfile = async () => {
     try {
       await api.tenant.update(configForm);
-      alert('Configurações salvas!');
+      showToast('Configurações salvas com sucesso!');
     } catch (err) {
-      alert(err.message || 'Erro ao salvar configurações');
+      showToast(err.message || 'Erro ao salvar configurações', 'error');
     }
   };
 
@@ -165,9 +172,10 @@ export default function DashboardPage() {
       try {
         await api.schedule.create({ title, event_date: date, location, status });
         setTitle(''); setDate(''); setLocation(''); setStatus('Agenda Aberta');
+        showToast('Evento adicionado com sucesso');
         onSaved();
       } catch (err) {
-        alert(err.message);
+        showToast(err.message || 'Erro ao criar evento', 'error');
       } finally {
         setSaving(false);
       }
@@ -211,7 +219,10 @@ export default function DashboardPage() {
   }
 
   const handleLogout = () => {
-    router.push('/');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('tenant');
+    router.push('/login');
   };
 
   if (loading) {
@@ -355,10 +366,10 @@ export default function DashboardPage() {
                         </button>
                         <button
                           onClick={async () => {
-                            if (confirm('Excluir esta foto?')) {
-                              await api.media.delete(m.id);
-                              openAlbum(selectedAlbum);
-                            }
+                            if (!window.confirm('Excluir esta foto?')) return;
+                            await api.media.delete(m.id);
+                            showToast('Foto excluída');
+                            openAlbum(selectedAlbum);
                           }}
                           className="text-xs bg-red-500 text-white px-2 py-1 rounded-lg ml-auto"
                         >
@@ -630,11 +641,11 @@ export default function DashboardPage() {
                             </span>
                             <button
                               onClick={async () => {
-                                if (confirm('Excluir este evento?')) {
-                                  await api.schedule.delete(ev.id);
-                                  const r = await api.schedule.list();
-                                  setSchedule(r.schedule || []);
-                                }
+                                if (!window.confirm('Excluir este evento?')) return;
+                                await api.schedule.delete(ev.id);
+                                const r = await api.schedule.list();
+                                setSchedule(r.schedule || []);
+                                showToast('Evento excluído');
                               }}
                               className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                             >
@@ -799,11 +810,12 @@ export default function DashboardPage() {
                                 const data = await res.json();
                                 if (res.ok) {
                                   setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, cover_url: data.url } }));
+                                  showToast('Imagem de capa atualizada');
                                 } else {
-                                  alert(data.message || 'Erro ao enviar imagem');
+                                  showToast(data.message || 'Erro ao enviar imagem', 'error');
                                 }
                               } catch {
-                                alert('Erro ao enviar imagem');
+                                showToast('Erro ao enviar imagem', 'error');
                               }
                             }} />
                           </label>
@@ -853,11 +865,12 @@ export default function DashboardPage() {
                                 const data = await res.json();
                                 if (res.ok) {
                                   setConfigForm((p) => ({ ...p, theme_config: { ...p.theme_config, profile_photo_url: data.url } }));
+                                  showToast('Foto de perfil atualizada');
                                 } else {
-                                  alert(data.message || 'Erro ao enviar imagem');
+                                  showToast(data.message || 'Erro ao enviar imagem', 'error');
                                 }
                               } catch {
-                                alert('Erro ao enviar imagem');
+                                showToast('Erro ao enviar imagem', 'error');
                               }
                             }} />
                           </label>
@@ -997,6 +1010,17 @@ export default function DashboardPage() {
           onClose={() => setAlbumModal({ open: false, mode: 'create', album: null })}
           onSave={albumModal.mode === 'edit' ? handleEditAlbum : handleCreateAlbum}
         />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className={`px-6 py-3 rounded-xl shadow-lg text-sm font-medium ${
+            toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-zinc-900 text-white'
+          }`} role="alert">
+            {toast.message}
+          </div>
+        </div>
       )}
     </div>
   );

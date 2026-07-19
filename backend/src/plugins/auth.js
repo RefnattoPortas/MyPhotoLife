@@ -2,7 +2,7 @@ import fp from 'fastify-plugin';
 import { unauthorized } from '../utils/errors.js';
 
 async function authPlugin(fastify) {
-  fastify.decorate('authenticate', async function (request, reply) {
+  fastify.decorate('authenticate', async function (request, _reply) {
     try {
       await request.jwtVerify();
     } catch (err) {

@@ -1,15 +1,34 @@
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import { getPool } from '../config/database.js';
 import { generateSignedUrl } from '../services/storage.js';
 import { notFound, badRequest, unauthorized } from '../utils/errors.js';
+import { env } from '../config/index.js';
+
+const VALID_TRANSITIONS = {
+  pending: ['paid', 'expired', 'cancelled'],
+  paid: ['refunded'],
+  expired: [],
+  cancelled: [],
+};
+
+function safeCompare(a, b) {
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 export default async function orderRoutes(fastify) {
   // POST / — Criar pedido (rota pública, sem autenticação)
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', async (request, _reply) => {
     const { tenant_slug, customer_name, customer_email, customer_phone, items } = request.body || {};
 
     if (!tenant_slug || !customer_name || !customer_email || !items?.length) {
-      throw badRequest('tenant_slug, customer_name, customer_email and items are required');
+      throw badRequest('tenant_slug, customer_name, customer_email e items sao obrigatorios');
+    }
+
+    if (!customer_email.includes('@')) {
+      throw badRequest('Email do cliente invalido');
     }
 
     const pool = getPool();
@@ -18,7 +37,7 @@ export default async function orderRoutes(fastify) {
       'SELECT id, pix_key, pix_key_type FROM tenants WHERE slug = ? AND is_active = TRUE LIMIT 1',
       [tenant_slug],
     );
-    if (tenants.length === 0) throw notFound('Photographer not found');
+    if (tenants.length === 0) throw notFound('Fotografo nao encontrado');
 
     const tenantId = tenants[0].id;
     let totalAmount = 0;
@@ -30,7 +49,7 @@ export default async function orderRoutes(fastify) {
           'SELECT id, filename, price FROM media_files WHERE id = ? AND tenant_id = ? AND is_for_sale = TRUE LIMIT 1',
           [item.media_id, tenantId],
         );
-        if (media.length === 0) throw notFound(`Media ${item.media_id} not available for sale`);
+        if (media.length === 0) throw notFound(`Midia ${item.media_id} nao disponivel para venda`);
         totalAmount += parseFloat(media[0].price);
         orderItems.push({ type: 'photo', mediaId: media[0].id, title: media[0].filename, price: media[0].price });
       } else if (item.type === 'album' && item.album_id) {
@@ -38,13 +57,13 @@ export default async function orderRoutes(fastify) {
           'SELECT id, title, price FROM albums WHERE id = ? AND tenant_id = ? AND is_for_sale = TRUE LIMIT 1',
           [item.album_id, tenantId],
         );
-        if (album.length === 0) throw notFound(`Album ${item.album_id} not available for sale`);
+        if (album.length === 0) throw notFound(`Album ${item.album_id} nao disponivel para venda`);
         totalAmount += parseFloat(album[0].price);
         orderItems.push({ type: 'album', albumId: album[0].id, title: album[0].title, price: album[0].price });
       }
     }
 
-    if (orderItems.length === 0) throw badRequest('No valid items to purchase');
+    if (orderItems.length === 0) throw badRequest('Nenhum item valido para compra');
 
     const orderId = uuidv4();
 
@@ -63,19 +82,65 @@ export default async function orderRoutes(fastify) {
       );
     }
 
-    // TODO: Integrar com gateway de Pix para gerar QR Code
-    // Por enquanto, retorna placeholder
+    // Gerar QR Code Pix (placeholder - substituir por integracao real)
+    let pixQrcode = null;
+    let pixCopyPaste = null;
+    let pixExpiresAt = null;
+
+    if (env.pix.gatewayUrl && env.pix.gatewayApiKey) {
+      try {
+        const pixPayload = {
+          amount: totalAmount,
+          order_id: orderId,
+          customer: { name: customer_name, email: customer_email, phone: customer_phone },
+          tenant_id: tenantId,
+        };
+        const pixResponse = await fetch(`${env.pix.gatewayUrl}/charge`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${env.pix.gatewayApiKey}`,
+          },
+          body: JSON.stringify(pixPayload),
+        });
+
+        if (pixResponse.ok) {
+          const pixData = await pixResponse.json();
+          pixQrcode = pixData.qrcode || null;
+          pixCopyPaste = pixData.copy_paste || null;
+          pixExpiresAt = pixData.expires_at || null;
+
+          if (pixData.id) {
+            await pool.execute(
+              'UPDATE orders SET gateway_payment_id = ? WHERE id = ?',
+              [pixData.id, orderId],
+            );
+          }
+        }
+      } catch (pixErr) {
+        fastify.log.error({ err: pixErr, orderId }, 'Erro ao gerar QR Code Pix');
+      }
+    }
+
+    if (pixCopyPaste && pixExpiresAt) {
+      await pool.execute(
+        'UPDATE orders SET pix_qrcode = ?, pix_copy_paste = ?, pix_expires_at = ? WHERE id = ?',
+        [pixQrcode, pixCopyPaste, pixExpiresAt, orderId],
+      );
+    }
+
     reply.status(201).send({
       id: orderId,
       total_amount: totalAmount,
       status: 'pending',
-      pix_qrcode: null,
-      pix_copy_paste: null,
+      pix_qrcode: pixQrcode,
+      pix_copy_paste: pixCopyPaste,
+      pix_expires_at: pixExpiresAt,
     });
   });
 
   // GET /:id — Status do pedido (público)
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get('/:id', async (request, _reply) => {
     const { id } = request.params;
     const pool = getPool();
 
@@ -83,26 +148,30 @@ export default async function orderRoutes(fastify) {
       'SELECT id, total_amount, status, pix_qrcode, pix_copy_paste, pix_expires_at, created_at FROM orders WHERE id = ? LIMIT 1',
       [id],
     );
-    if (orders.length === 0) throw notFound('Order not found');
+    if (orders.length === 0) throw notFound('Pedido nao encontrado');
 
     return { order: orders[0] };
   });
 
-  // GET /:id/download — Gerar links de download (após pagamento)
-  fastify.get('/:id/download', async (request, reply) => {
+  // GET /:id/download — Gerar links de download (apos pagamento)
+  fastify.get('/:id/download', async (request, _reply) => {
     const { id } = request.params;
     const { email } = request.query;
     const pool = getPool();
+
+    if (!email || !email.includes('@')) {
+      throw badRequest('Email valido e obrigatorio para download');
+    }
 
     const [orders] = await pool.execute(
       'SELECT id, tenant_id, customer_email, status FROM orders WHERE id = ? LIMIT 1',
       [id],
     );
-    if (orders.length === 0) throw notFound('Order not found');
+    if (orders.length === 0) throw notFound('Pedido nao encontrado');
 
     const order = orders[0];
-    if (order.status !== 'paid') throw unauthorized('Order is not paid yet');
-    if (order.customer_email !== email) throw unauthorized('Email does not match order');
+    if (order.status !== 'paid') throw unauthorized('Pedido ainda nao foi pago');
+    if (order.customer_email !== email) throw unauthorized('Email nao corresponde ao pedido');
 
     const [items] = await pool.execute(
       'SELECT item_type, media_file_id, album_id FROM order_items WHERE order_id = ?',
@@ -137,24 +206,71 @@ export default async function orderRoutes(fastify) {
   });
 
   // Webhook: POST /webhook/pix — Atualizar status do pedido
+  // Protegido por assinatura do webhook
   fastify.post('/webhook/pix', async (request, reply) => {
+    const webhookSecret = env.pix.webhookSecret;
+
+    // Validar assinatura se o segredo estiver configurado
+    if (webhookSecret) {
+      const signature = request.headers['x-webhook-signature'] || '';
+      const payload = JSON.stringify(request.body || {});
+      const expected = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(payload)
+        .digest('hex');
+
+      if (!safeCompare(signature, expected)) {
+        fastify.log.warn({ ip: request.ip }, 'Webhook: assinatura invalida');
+        throw unauthorized('Assinatura do webhook invalida');
+      }
+    }
+
     const { payment_id, status, order_id } = request.body || {};
 
     if (!payment_id || !status || !order_id) {
-      throw badRequest('payment_id, status and order_id are required');
+      throw badRequest('payment_id, status e order_id sao obrigatorios');
+    }
+
+    // Validar status permitido
+    const ALLOWED_STATUSES = ['paid', 'expired', 'cancelled', 'refunded'];
+    if (!ALLOWED_STATUSES.includes(status)) {
+      throw badRequest(`Status invalido: ${status}`);
     }
 
     const pool = getPool();
 
-    const [orders] = await pool.execute('SELECT id, status FROM orders WHERE id = ? LIMIT 1', [order_id]);
-    if (orders.length === 0) throw notFound('Order not found');
+    const [orders] = await pool.execute(
+      'SELECT id, status FROM orders WHERE id = ? LIMIT 1',
+      [order_id],
+    );
+    if (orders.length === 0) throw notFound('Pedido nao encontrado');
 
-    const newStatus = status === 'paid' ? 'paid' : status === 'expired' ? 'expired' : 'cancelled';
+    const currentStatus = orders[0].status;
+
+    // Prevenir repeticoes: se o status ja for o mesmo, ignorar
+    if (currentStatus === status) {
+      return reply.status(200).send({ received: true, ignored: true });
+    }
+
+    // Validar transicao de estado
+    const allowedNext = VALID_TRANSITIONS[currentStatus] || [];
+    if (!allowedNext.includes(status)) {
+      fastify.log.warn({ order_id, from: currentStatus, to: status }, 'Webhook: transicao de estado invalida');
+      throw badRequest(`Transicao de ${currentStatus} para ${status} nao permitida`);
+    }
+
+    // Impedir que webhook nao autenticado marque como pago
+    if (status === 'paid' && !webhookSecret) {
+      fastify.log.error({ order_id }, 'Webhook: tentativa de marcar como pago sem segredo configurado');
+      throw unauthorized('Webhook nao configurado para confirmar pagamentos');
+    }
 
     await pool.execute(
-      'UPDATE orders SET status = ?, gateway_payment_id = ?, paid_at = IF(? = "paid", NOW(), NULL) WHERE id = ?',
-      [newStatus, payment_id, newStatus, order_id],
+      'UPDATE orders SET status = ?, gateway_payment_id = COALESCE(?, gateway_payment_id), paid_at = IF(? = "paid", NOW(), NULL) WHERE id = ?',
+      [status, payment_id, status, order_id],
     );
+
+    fastify.log.info({ order_id, status, payment_id }, 'Webhook: pedido atualizado');
 
     reply.status(200).send({ received: true });
   });

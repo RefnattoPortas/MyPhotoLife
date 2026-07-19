@@ -42,7 +42,11 @@ export const api = {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
-      }).then((r) => r.json());
+      }).then(async (r) => {
+        const body = await r.json();
+        if (!r.ok) throw new Error(body.message || `HTTP ${r.status}`);
+        return body;
+      });
     },
     update: (id, data) => request(`/media/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id) => request(`/media/${id}`, { method: 'DELETE' }),

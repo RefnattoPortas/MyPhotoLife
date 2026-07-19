@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import mysql from 'mysql2/promise';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { env } from './src/config/index.js';
 
@@ -20,11 +20,17 @@ async function seed() {
     timezone: '+00:00',
   });
 
-  const email = 'adm@myphotolife.com';
-  const password = '123456789';
-  const displayName = 'Administrador';
-  const slug = 'adm';
-  const tenantName = 'Conta de Teste';
+  const email = process.env.SEED_EMAIL || '';
+  const password = process.env.SEED_PASSWORD || '';
+  const displayName = process.env.SEED_NAME || 'Administrador';
+  const slug = process.env.SEED_SLUG || '';
+  const tenantName = process.env.SEED_TENANT || 'Conta de Teste';
+
+  if (!email || !password || !slug) {
+    console.log('[Seed] Defina SEED_EMAIL, SEED_PASSWORD e SEED_SLUG no .env');
+    await pool.end();
+    return;
+  }
 
   const [existing] = await pool.execute(
     'SELECT id FROM users WHERE email = ?',
@@ -32,7 +38,7 @@ async function seed() {
   );
 
   if (existing.length > 0) {
-    console.log('[Seed] Conta de teste já existe.');
+    console.log('[Seed] Conta de teste ja existe.');
     await pool.end();
     return;
   }
@@ -57,9 +63,6 @@ async function seed() {
 
     await conn.commit();
     console.log('[Seed] Conta de teste criada com sucesso!');
-    console.log('  Email:    adm@myphotolife.com');
-    console.log('  Senha:    123456789');
-    console.log('  Papel:    admin');
   } catch (err) {
     await conn.rollback();
     console.error('[Seed] Erro ao criar conta de teste:', err.message);

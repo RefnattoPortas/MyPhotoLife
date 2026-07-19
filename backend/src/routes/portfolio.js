@@ -3,7 +3,7 @@ import { notFound } from '../utils/errors.js';
 
 export default async function portfolioRoutes(fastify) {
   // GET /:slug — Portfólio público do fotógrafo
-  fastify.get('/:slug', async (request, reply) => {
+  fastify.get('/:slug', async (request, _reply) => {
     const { slug } = request.params;
     const pool = getPool();
 
@@ -50,7 +50,7 @@ export default async function portfolioRoutes(fastify) {
   });
 
   // GET /:slug/albums/:id — Álbum público com fotos
-  fastify.get('/:slug/albums/:id', async (request, reply) => {
+  fastify.get('/:slug/albums/:id', async (request, _reply) => {
     const { slug, id } = request.params;
     const pool = getPool();
 
