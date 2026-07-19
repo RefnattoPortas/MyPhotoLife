@@ -1,0 +1,11 @@
+{
+  "reporter": ["text", "json", "lcov", "html"],
+  "include": ["src/**/*.js"],
+  "exclude": ["src/**/*.test.js", "src/test-helper.js", "node_modules"],
+  "all": true,
+  "check-coverage": true,
+  "branches": 60,
+  "functions": 65,
+  "lines": 70,
+  "statements": 70
+}

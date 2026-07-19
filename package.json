@@ -5,7 +5,14 @@
   "scripts": {
     "dev": "npm run dev --prefix frontend",
     "build": "npm run build --prefix frontend",
-    "migrate": "npm run migrate --prefix backend"
+    "migrate": "npm run migrate --prefix backend",
+    "test": "npm test --prefix backend",
+    "test:coverage": "npm run test:coverage --prefix backend",
+    "test:e2e": "npm run test:e2e --prefix frontend",
+    "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
+    "deps:audit": "npm run deps:audit --prefix backend && npm run deps:audit --prefix frontend",
+    "clean-install": "rm -rf node_modules backend/node_modules frontend/node_modules && npm install && npm install --prefix backend && npm install --prefix frontend",
+    "ci": "npm run lint && npm test && npm run build"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
