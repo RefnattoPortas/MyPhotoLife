@@ -152,6 +152,7 @@ export default function UploadDropzone({ albumId, onUploadComplete }) {
           multiple
           accept={ALLOWED_TYPES.join(',')}
           className="hidden"
+          aria-label="Selecionar fotos para upload"
           onChange={handleInputChange}
         />
         <Upload className="w-8 h-8 text-zinc-300 mx-auto mb-3" />
@@ -181,6 +182,7 @@ export default function UploadDropzone({ albumId, onUploadComplete }) {
                 <button
                   onClick={clearQueue}
                   className="text-xs text-zinc-400 hover:text-zinc-700 transition-colors"
+                  aria-label="Limpar fila de upload"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -191,7 +193,7 @@ export default function UploadDropzone({ albumId, onUploadComplete }) {
             <div key={i} className="flex items-center gap-3 px-4 py-2.5">
               <div className="w-10 h-10 rounded-lg bg-zinc-100 overflow-hidden flex-shrink-0">
                 {item.status === 'done' && item.result?.thumbnail_url ? (
-                  <img src={item.result.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                  <img src={item.result.thumbnail_url} alt={item.originalName} className="w-full h-full object-cover" />
                 ) : (
                   <Image className="w-5 h-5 text-zinc-300 m-auto mt-2.5" />
                 )}

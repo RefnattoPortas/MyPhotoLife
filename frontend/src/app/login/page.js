@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { api, setCsrfToken } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,9 +19,7 @@ export default function LoginPage() {
 
     try {
       const data = await api.auth.login({ email, password });
-      localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('tenant', JSON.stringify(data.tenant));
+      setCsrfToken(data.csrfToken || data.token);
       router.push('/dashboard');
     } catch (err) {
       setError(err.message);

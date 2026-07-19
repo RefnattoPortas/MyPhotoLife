@@ -31,6 +31,209 @@ function ScrollReveal({ children, className = '' }) {
   return <div ref={ref} className={`opacity-0 ${className}`}>{children}</div>;
 }
 
+function ContactTab({ photographer, api, slug }) {
+  const [form, setForm] = useState({ name: '', email: '', subject: 'Orçamento para Ensaio', message: '', consent: false });
+  const [sending, setSending] = useState(false);
+  const [status, setStatus] = useState(null);
+
+  const whatsappNumber = photographer.whatsapp
+    ? photographer.whatsapp.startsWith('http')
+      ? photographer.whatsapp.replace(/\D/g, '')
+      : photographer.whatsapp.replace(/\D/g, '')
+    : null;
+
+  const handleWhatsApp = () => {
+    if (!whatsappNumber) return;
+    const msg = encodeURIComponent(
+      `Olá ${photographer.name}! Vi seu portfólio e gostaria de mais informações.`
+    );
+    window.open(`https://wa.me/${whatsappNumber}?text=${msg}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleEmailSubmit = async (e) => {
+    e.preventDefault();
+    if (sending) return;
+
+    const trimmedName = form.name.trim();
+    const trimmedEmail = form.email.trim();
+    const trimmedSubject = form.subject.trim();
+    const trimmedMessage = form.message.trim();
+
+    if (trimmedName.length < 2 || trimmedName.length > 100) {
+      setStatus({ type: 'error', message: 'Nome deve ter entre 2 e 100 caracteres' });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setStatus({ type: 'error', message: 'Informe um e-mail válido' });
+      return;
+    }
+    if (trimmedSubject.length < 1 || trimmedSubject.length > 200) {
+      setStatus({ type: 'error', message: 'Assunto inválido' });
+      return;
+    }
+    if (trimmedMessage.length < 10 || trimmedMessage.length > 2000) {
+      setStatus({ type: 'error', message: 'Mensagem deve ter entre 10 e 2000 caracteres' });
+      return;
+    }
+    if (!form.consent) {
+      setStatus({ type: 'error', message: 'É necessário consentir com o envio dos dados' });
+      return;
+    }
+
+    setSending(true);
+    setStatus(null);
+    try {
+      await api.portfolio.contact(slug, {
+        name: trimmedName,
+        email: trimmedEmail,
+        subject: trimmedSubject,
+        message: trimmedMessage,
+        consent: form.consent,
+      });
+      setStatus({ type: 'success', message: 'Mensagem enviada com sucesso! Entrarei em contato em breve.' });
+      setForm({ name: '', email: '', subject: 'Orçamento para Ensaio', message: '', consent: false });
+    } catch (err) {
+      setStatus({ type: 'error', message: err.message || 'Erro ao enviar mensagem. Tente novamente.' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto mt-6 space-y-6">
+      {whatsappNumber && (
+        <div className="bg-white p-8 md:p-10 rounded-3xl shadow-sm border border-stone-200 text-center">
+          <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <MessageCircle className="w-7 h-7 text-emerald-600" />
+          </div>
+          <h3 className="text-xl font-bold mb-2">Fale pelo WhatsApp</h3>
+          <p className="text-stone-500 text-sm mb-6">Resposta rápida e direta pelo WhatsApp</p>
+          <p className="text-xs text-stone-400 mb-4">Sua mensagem será enviada via WhatsApp</p>
+          <button
+            onClick={handleWhatsApp}
+            className="inline-flex items-center gap-2 bg-emerald-600 text-white px-8 py-3.5 rounded-full font-medium hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 active:scale-[0.98]"
+          >
+            <MessageCircle className="w-5 h-5" />
+            Enviar WhatsApp
+          </button>
+        </div>
+      )}
+
+      {photographer.email_contact && (
+        <form onSubmit={handleEmailSubmit} className="bg-white p-8 md:p-10 rounded-3xl shadow-sm border border-stone-200 space-y-6">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold tracking-tight">
+              {whatsappNumber ? 'Ou envie um E-mail' : 'Vamos Conversar'}
+            </h2>
+            <p className="text-stone-500 mt-2 text-sm">
+              Sua mensagem será enviada por e-mail para o fotógrafo
+            </p>
+          </div>
+
+          {status && (
+            <div className={`px-5 py-4 rounded-xl text-sm font-medium ${
+              status.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'
+            }`} role="alert">
+              {status.message}
+            </div>
+          )}
+
+          <input type="text" name="_hp" className="absolute -left-[9999px]" tabIndex={-1} autoComplete="off" />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label htmlFor="contact-name" className="text-xs font-medium text-stone-500 uppercase tracking-wider">Nome Completo</label>
+              <input
+                id="contact-name"
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                className="w-full px-4 py-3 bg-stone-50 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-400 transition-all"
+                placeholder="Seu nome"
+                maxLength={100}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="contact-email" className="text-xs font-medium text-stone-500 uppercase tracking-wider">E-mail</label>
+              <input
+                id="contact-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                className="w-full px-4 py-3 bg-stone-50 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-400 transition-all"
+                placeholder="seu@email.com"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="contact-subject" className="text-xs font-medium text-stone-500 uppercase tracking-wider">Assunto</label>
+            <select
+              id="contact-subject"
+              value={form.subject}
+              onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))}
+              className="w-full px-4 py-3 bg-stone-50 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-400 transition-all"
+            >
+              <option value="Orçamento para Ensaio">Orçamento para Ensaio</option>
+              <option value="Orçamento para Casamento">Orçamento para Casamento</option>
+              <option value="Orçamento para Evento">Orçamento para Evento</option>
+              <option value="Dúvidas gerais">Dúvidas gerais</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="contact-message" className="text-xs font-medium text-stone-500 uppercase tracking-wider">Mensagem</label>
+            <textarea
+              id="contact-message"
+              rows={4}
+              value={form.message}
+              onChange={(e) => setForm((p) => ({ ...p, message: e.target.value }))}
+              className="w-full px-4 py-3 bg-stone-50 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-400 transition-all resize-none"
+              placeholder="Como posso ajudar?"
+              maxLength={2000}
+              required
+            />
+            <p className="text-xs text-stone-400 text-right">{form.message.length}/2000</p>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="consent"
+              checked={form.consent}
+              onChange={(e) => setForm((p) => ({ ...p, consent: e.target.checked }))}
+              className="mt-1 w-4 h-4 rounded border-stone-300 text-stone-900 focus:ring-stone-900"
+              required
+            />
+            <label htmlFor="consent" className="text-xs text-stone-500 leading-relaxed">
+              Autorizo o envio dos meus dados (nome, e-mail e mensagem) para que o fotógrafo entre em contato. Consulte nossa{' '}
+              <a href="/privacy" target="_blank" className="underline hover:text-stone-700">Política de Privacidade</a>.
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={sending}
+            className="w-full bg-stone-900 text-white font-medium py-3.5 rounded-xl hover:bg-stone-800 transition-colors shadow-lg shadow-stone-900/10 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {sending ? 'Enviando...' : 'Enviar Mensagem'}
+          </button>
+        </form>
+      )}
+
+      {!whatsappNumber && !photographer.email_contact && (
+        <div className="text-center py-16 bg-white rounded-3xl border border-stone-200">
+          <Mail className="w-12 h-12 text-stone-300 mx-auto mb-4" />
+          <p className="text-stone-500">Nenhum canal de contato disponível no momento.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PortfolioPage({ params }) {
   const router = useRouter();
   const { slug } = params;
@@ -251,15 +454,19 @@ export default function PortfolioPage({ params }) {
           )}
           
           {/* Navigation Tabs */}
-          <div className="mt-10 flex items-center justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar max-w-full animate-fade-up stagger-3 px-2">
+          <div className="mt-10 flex items-center justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar max-w-full animate-fade-up stagger-3 px-2" role="tablist" aria-label="Navegação do portfólio">
              {[
                 { id: 'albums', label: 'Álbuns', icon: ImageIcon },
                 ...(photographer.bio ? [{ id: 'about', label: 'Quem Sou', icon: User }] : []),
                 ...(schedule?.length > 0 ? [{ id: 'schedule', label: 'Agenda', icon: Calendar }] : []),
-                { id: 'contact', label: 'Contato', icon: Mail },
+                ...((photographer.whatsapp || photographer.email_contact) ? [{ id: 'contact', label: 'Contato', icon: Mail }] : []),
               ].map(tab => (
                  <button
                    key={tab.id}
+                   id={`tab-${tab.id}`}
+                   role="tab"
+                   aria-selected={activeTab === tab.id}
+                   aria-controls={`tabpanel-${tab.id}`}
                    onClick={() => setActiveTab(tab.id)}
                    className={`flex items-center gap-2 px-2 sm:px-3 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
                      activeTab === tab.id
@@ -279,7 +486,7 @@ export default function PortfolioPage({ params }) {
       <main className="max-w-6xl mx-auto px-6 pb-24 min-h-[40vh]">
         {/* TAB: ALBUMS */}
         {activeTab === 'albums' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div id="tabpanel-albums" role="tabpanel" aria-labelledby="tab-albums" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             {albums.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 mt-6">
                 {albums.map((album, i) => (
@@ -348,7 +555,7 @@ export default function PortfolioPage({ params }) {
 
         {/* TAB: ABOUT ME */}
         {activeTab === 'about' && photographer.bio && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto mt-6">
+          <div id="tabpanel-about" role="tabpanel" aria-labelledby="tab-about" className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto mt-6">
              <div className="bg-white p-6 md:p-12 rounded-3xl border border-stone-200 shadow-sm">
                 <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-6">Sobre {photographer.name}</h2>
                  <div className="text-stone-600 leading-relaxed text-base md:text-lg font-light whitespace-pre-line">
@@ -390,7 +597,7 @@ export default function PortfolioPage({ params }) {
 
         {/* TAB: SCHEDULE */}
         {activeTab === 'schedule' && schedule?.length > 0 && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl mx-auto mt-6">
+          <div id="tabpanel-schedule" role="tabpanel" aria-labelledby="tab-schedule" className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl mx-auto mt-6">
             <div className="space-y-4">
               {schedule.map((event) => (
                 <div key={event.id} className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-stone-300 transition-colors">
@@ -428,38 +635,8 @@ export default function PortfolioPage({ params }) {
 
         {/* TAB: CONTACT */}
         {activeTab === 'contact' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto mt-6">
-            <form className="bg-white p-8 md:p-10 rounded-3xl shadow-sm border border-stone-200 space-y-6">
-              <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold tracking-tight">Vamos Conversar</h2>
-                <p className="text-stone-500 mt-2 text-sm">Preencha o formulário abaixo para entrar em contato.</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-stone-500 uppercase tracking-wider">Nome Completo</label>
-                  <input type="text" className="w-full px-4 py-3 bg-stone-50 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-400 transition-all" placeholder="Seu nome" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-stone-500 uppercase tracking-wider">E-mail</label>
-                  <input type="email" className="w-full px-4 py-3 bg-stone-50 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-400 transition-all" placeholder="seu@email.com" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-stone-500 uppercase tracking-wider">Assunto</label>
-                <select className="w-full px-4 py-3 bg-stone-50 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-400 transition-all">
-                  <option>Orçamento para Ensaio</option>
-                  <option>Orçamento para Casamento</option>
-                  <option>Dúvidas gerais</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-stone-500 uppercase tracking-wider">Mensagem</label>
-                <textarea rows={4} className="w-full px-4 py-3 bg-stone-50 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-400 transition-all resize-none" placeholder="Como posso ajudar?"></textarea>
-              </div>
-              <button type="button" className="w-full bg-stone-900 text-white font-medium py-3.5 rounded-xl hover:bg-stone-800 transition-colors shadow-lg shadow-stone-900/10 active:scale-[0.98]">
-                Enviar Mensagem
-              </button>
-            </form>
+          <div id="tabpanel-contact" role="tabpanel" aria-labelledby="tab-contact">
+            <ContactTab photographer={photographer} api={api} slug={slug} />
           </div>
         )}
       </main>
@@ -474,7 +651,11 @@ export default function PortfolioPage({ params }) {
 
       {/* Cart Sidebar */}
       {showCart && cart.length > 0 && (
-        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setShowCart(false)}>
+        <div
+          className="fixed inset-0 z-50 flex justify-end"
+          onClick={() => setShowCart(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setShowCart(false); }}
+        >
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm animate-fade-in" />
           <div
             className="relative w-full max-w-sm bg-white h-full shadow-2xl border-l border-stone-100 flex flex-col z-10 animate-slide-up"
@@ -511,7 +692,7 @@ export default function PortfolioPage({ params }) {
                   <button
                     onClick={() => removeFromCart(item.id)}
                     className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                    title="Remover"
+                    aria-label={`Remover ${item.filename || 'foto'} do carrinho`}
                   >
                     <Trash2 className="w-[18px] h-[18px]" />
                   </button>

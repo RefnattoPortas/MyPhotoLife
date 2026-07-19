@@ -1,18 +1,34 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
 
 export default function Lightbox({ items, currentIndex, onClose, onPrev, onNext, onBuy }) {
   const item = items?.[currentIndex];
   const hasPrev = currentIndex > 0;
   const hasNext = items && currentIndex < items.length - 1;
+  const containerRef = useRef(null);
 
   const handleKeyDown = useCallback(
     (e) => {
       if (e.key === 'Escape') onClose?.();
       if (e.key === 'ArrowLeft' && hasPrev) onPrev?.();
       if (e.key === 'ArrowRight' && hasNext) onNext?.();
+      if (e.key === 'Tab' && containerRef.current) {
+        const focusable = containerRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     },
     [onClose, onPrev, onNext, hasPrev, hasNext],
   );
@@ -20,7 +36,12 @@ export default function Lightbox({ items, currentIndex, onClose, onPrev, onNext,
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
     document.body.style.overflow = 'hidden';
+    const timer = setTimeout(() => {
+      const closeBtn = containerRef.current?.querySelector('button[aria-label="Fechar"]');
+      closeBtn?.focus();
+    }, 100);
     return () => {
+      clearTimeout(timer);
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
     };
@@ -32,6 +53,7 @@ export default function Lightbox({ items, currentIndex, onClose, onPrev, onNext,
 
   return (
     <div
+      ref={containerRef}
       className="fixed inset-0 z-50 bg-black/95 flex flex-col animate-fade-in"
       onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
       role="dialog"

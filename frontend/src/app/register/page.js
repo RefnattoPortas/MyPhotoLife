@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { api, setCsrfToken } from '@/lib/api';
 
 const STRENGTH_LABELS = ['', 'Fraca', 'Média', 'Forte', 'Muito forte'];
 const STRENGTH_COLORS = ['', 'bg-red-500', 'bg-yellow-500', 'bg-green-500', 'bg-emerald-500'];
@@ -47,9 +47,7 @@ export default function RegisterPage() {
 
     try {
       const data = await api.auth.register(form);
-      localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('tenant', JSON.stringify(data.tenant));
+      setCsrfToken(data.csrfToken || data.token);
       router.push('/dashboard');
     } catch (err) {
       setError(err.message);
@@ -132,7 +130,7 @@ export default function RegisterPage() {
               autoComplete="new-password"
             />
             {form.password.length > 0 && (
-              <div className="mt-2">
+              <div className="mt-2" role="meter" aria-label="Força da senha" aria-valuenow={strength} aria-valuemin={0} aria-valuemax={4} aria-valuetext={STRENGTH_LABELS[strength]}>
                 <div className="flex gap-1 mb-1">
                   {[1, 2, 3, 4].map((i) => (
                     <div key={i} className={`h-1 flex-1 rounded-full ${i <= strength ? STRENGTH_COLORS[strength] : 'bg-zinc-200'}`} />

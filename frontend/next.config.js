@@ -8,26 +8,14 @@ const nextConfig = {
       },
     ],
   },
-  // Redireciona apenas rotas específicas do backend Fastify
-  // Rotas Next.js (auth, tenant, schedule, portfolio) permanecem locais
+  // Todas as rotas /api/* são delegadas ao backend Fastify (MySQL)
+  // O Next.js mantém apenas o frontend (páginas e componentes)
   async rewrites() {
     const apiUrl = process.env.API_URL || 'http://localhost:3001';
     return [
       {
-        source: '/api/albums/:path*',
-        destination: `${apiUrl}/api/albums/:path*`,
-      },
-      {
-        source: '/api/media/:path*',
-        destination: `${apiUrl}/api/media/:path*`,
-      },
-      {
-        source: '/api/orders/:path*',
-        destination: `${apiUrl}/api/orders/:path*`,
-      },
-      {
-        source: '/api/health',
-        destination: `${apiUrl}/api/health`,
+        source: '/api/:path*',
+        destination: `${apiUrl}/api/:path*`,
       },
     ];
   },
