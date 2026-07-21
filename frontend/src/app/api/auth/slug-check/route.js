@@ -1,15 +1,40 @@
-import { proxyToBackend, jsonResponse } from '@/lib/api-proxy';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { validateSlug } from '@/lib/auth-native';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get('slug');
-  const result = await proxyToBackend(request, { path: `/api/auth/slug-check?slug=${encodeURIComponent(slug || '')}` });
 
-  if (result.body) {
-    return jsonResponse(result.body, result.status);
+  if (!slug) {
+    return Response.json({ available: false, error: 'Slug é obrigatório.' }, { status: 400 });
   }
 
-  return jsonResponse({ available: false, error: 'Serviço temporariamente indisponível.' }, 503);
+  const slugError = validateSlug(slug);
+  if (slugError) {
+    return Response.json({ available: false, error: slugError });
+  }
+
+  if (!supabaseAdmin) {
+    return Response.json({ available: false, error: 'Serviço temporariamente indisponível.' });
+  }
+
+  const normalizedSlug = slug.toLowerCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/--+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const { data, error } = await supabaseAdmin
+    .from('tenants')
+    .select('id')
+    .eq('slug', normalizedSlug)
+    .limit(1);
+
+  if (error) {
+    return Response.json({ available: false, error: 'Serviço temporariamente indisponível.' });
+  }
+
+  return Response.json({ available: !data || data.length === 0, slug: normalizedSlug });
 }
 
 export async function OPTIONS() {

@@ -1,17 +1,12 @@
-import { proxyToBackend, jsonResponse } from '@/lib/api-proxy';
+import { clearCookieHeader } from '@/lib/auth-native';
 
-export async function POST(request) {
-  const result = await proxyToBackend(request, { path: '/api/auth/logout' });
-
-  const headers = {};
-  if (result.headers) {
-    const setCookie = result.headers.get('set-cookie');
-    if (setCookie) headers['Set-Cookie'] = setCookie;
-  }
-
-  return new Response(JSON.stringify(result.body || { message: 'Sessão encerrada' }), {
-    status: result.status,
-    headers: { 'Content-Type': 'application/json', ...headers },
+export async function POST() {
+  return new Response(JSON.stringify({ message: 'Sessão encerrada com sucesso' }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Set-Cookie': clearCookieHeader(),
+    },
   });
 }
 
