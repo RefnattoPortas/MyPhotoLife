@@ -1,44 +1,38 @@
-import { proxyToBackend, jsonResponse } from '@/lib/api-proxy';
-
-export async function GET(request, { params }) {
-  const path = buildPath(params);
-  const result = await proxyToBackend(request, { path });
-  return jsonResponse(result.body || { error: 'Serviço indisponível' }, result.status);
+export async function GET() {
+  return new Response(JSON.stringify({ error: true, message: 'Rota não encontrada.' }), {
+    status: 404,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
-export async function POST(request, { params }) {
-  const body = await request.json().catch(() => ({}));
-  const path = buildPath(params);
-  const result = await proxyToBackend(request, { path, body });
-  return jsonResponse(result.body || { error: 'Serviço indisponível' }, result.status);
+export async function POST() {
+  return new Response(JSON.stringify({ error: true, message: 'Rota não encontrada.' }), {
+    status: 404,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
-export async function PUT(request, { params }) {
-  const body = await request.json().catch(() => ({}));
-  const path = buildPath(params);
-  const result = await proxyToBackend(request, { path, body });
-  return jsonResponse(result.body || { error: 'Serviço indisponível' }, result.status);
+export async function PUT() {
+  return new Response(JSON.stringify({ error: true, message: 'Rota não encontrada.' }), {
+    status: 404,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
-export async function PATCH(request, { params }) {
-  const body = await request.json().catch(() => ({}));
-  const path = buildPath(params);
-  const result = await proxyToBackend(request, { path, body });
-  return jsonResponse(result.body || { error: 'Serviço indisponível' }, result.status);
+export async function PATCH() {
+  return new Response(JSON.stringify({ error: true, message: 'Rota não encontrada.' }), {
+    status: 404,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
-export async function DELETE(request, { params }) {
-  const path = buildPath(params);
-  const result = await proxyToBackend(request, { path });
-  return jsonResponse(result.body || { error: 'Serviço indisponível' }, result.status);
+export async function DELETE() {
+  return new Response(JSON.stringify({ error: true, message: 'Rota não encontrada.' }), {
+    status: 404,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 export async function OPTIONS() {
   return new Response(null, { status: 204 });
-}
-
-function buildPath(params) {
-  const path = params?.path || [];
-  const joined = path.join('/');
-  return joined.startsWith('/') ? joined : `/api/${joined}`;
 }

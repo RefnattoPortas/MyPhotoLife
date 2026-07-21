@@ -121,3 +121,30 @@ CREATE TABLE order_items (
 );
 CREATE INDEX idx_items_order ON order_items (order_id);
 CREATE INDEX idx_items_media ON order_items (media_file_id);
+
+-- 7. SCHEDULE (Agenda de Eventos)
+CREATE TABLE schedule (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id       UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  title           VARCHAR(255) NOT NULL,
+  event_date      DATE NOT NULL,
+  location        VARCHAR(255) DEFAULT NULL,
+  status          VARCHAR(50) NOT NULL DEFAULT 'Agenda Aberta',
+  created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_schedule_tenant ON schedule (tenant_id);
+CREATE INDEX idx_schedule_date ON schedule (tenant_id, event_date);
+
+-- 8. CONTACT_MESSAGES
+CREATE TABLE contact_messages (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id       UUID         NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  sender_name     VARCHAR(255) NOT NULL,
+  sender_email    VARCHAR(255) NOT NULL,
+  subject         VARCHAR(255) DEFAULT NULL,
+  message         TEXT NOT NULL,
+  is_read         BOOLEAN      NOT NULL DEFAULT FALSE,
+  created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_contact_tenant ON contact_messages (tenant_id);
