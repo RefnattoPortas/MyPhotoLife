@@ -21,11 +21,6 @@ export async function GET(request) {
       return Response.json({ error: true, statusCode: 401, code: 'UNAUTHORIZED', message: 'Sessão expirada. Faça login novamente.' }, { status: 401 });
     }
 
-    if (!supabaseAdmin) {
-      const err = errorResponse('BACKEND_UNAVAILABLE');
-      return Response.json(err.body, { status: err.status });
-    }
-
     const { data: user, error } = await supabaseAdmin
       .from('users')
       .select('id, email, display_name, role, created_at, tenant_id')

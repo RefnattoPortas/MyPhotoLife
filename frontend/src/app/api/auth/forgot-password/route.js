@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import crypto from 'node:crypto';
-import { normalizeEmail, errorResponse } from '@/lib/auth-native';
+import { normalizeEmail } from '@/lib/auth-native';
 
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
 const RATE_LIMIT_MAX_ATTEMPTS = 5;
@@ -43,10 +43,6 @@ export async function POST(request) {
 
     if (!checkResetRateLimit(normalizedEmail)) {
       return Response.json({ error: true, statusCode: 429, message: 'Muitas tentativas. Tente novamente mais tarde.' }, { status: 429 });
-    }
-
-    if (!supabaseAdmin) {
-      return Response.json({ message: genericMessage });
     }
 
     const { data: user } = await supabaseAdmin

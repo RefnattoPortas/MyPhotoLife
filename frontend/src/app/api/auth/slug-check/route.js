@@ -14,10 +14,6 @@ export async function GET(request) {
     return Response.json({ available: false, error: slugError });
   }
 
-  if (!supabaseAdmin) {
-    return Response.json({ available: false, error: 'Serviço temporariamente indisponível.' });
-  }
-
   const normalizedSlug = slug.toLowerCase().trim()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9-]/g, '-')

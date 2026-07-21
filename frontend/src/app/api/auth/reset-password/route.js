@@ -41,11 +41,6 @@ export async function POST(request) {
     const normalizedEmail = normalizeEmail(email);
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-    if (!supabaseAdmin) {
-      const err = errorResponse('BACKEND_UNAVAILABLE');
-      return Response.json(err.body, { status: err.status });
-    }
-
     const { data: resetToken, error: findError } = await supabaseAdmin
       .from('password_reset_tokens')
       .select('id, user_id, expires_at')

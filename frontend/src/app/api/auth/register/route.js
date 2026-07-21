@@ -70,11 +70,6 @@ export async function POST(request) {
 
     const normalizedSlug = normalizeSlug(slug);
 
-    if (!supabaseAdmin) {
-      const err = errorResponse('BACKEND_UNAVAILABLE');
-      return Response.json(err.body, { status: err.status });
-    }
-
     const { data: existing, error: checkError } = await supabaseAdmin
       .from('tenants')
       .select('id')

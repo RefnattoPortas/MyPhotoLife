@@ -18,11 +18,6 @@ export async function POST(request) {
 
     const normalizedEmail = normalizeEmail(email);
 
-    if (!supabaseAdmin) {
-      const err = errorResponse('BACKEND_UNAVAILABLE');
-      return Response.json(err.body, { status: err.status });
-    }
-
     const { data: user, error } = await supabaseAdmin
       .from('users')
       .select('id, email, password_hash, display_name, role, tenant_id')
