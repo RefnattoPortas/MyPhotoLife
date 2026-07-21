@@ -3,7 +3,6 @@ import crypto from 'node:crypto';
 import { proxyToBackend, jsonResponse } from '@/lib/api-proxy';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import {
-  normalizeEmail,
   validateSlug,
   signToken,
   setCookieHeader,
@@ -47,8 +46,8 @@ async function nativeRegister({ name, email, password, password_confirm, slug })
     return { status: 400, body: { error: true, statusCode: 400, message: 'Nome deve ter entre 2 e 100 caracteres.' } };
   }
 
-  const normalizedEmail = normalizeEmail(email);
-  if (!normalizedEmail.includes('@') || normalizedEmail.length > 254) {
+  const lookupEmail = email.trim().toLowerCase();
+  if (!lookupEmail.includes('@') || lookupEmail.length > 254) {
     return { status: 400, body: { error: true, statusCode: 400, message: 'Email inválido.' } };
   }
 
@@ -75,7 +74,7 @@ async function nativeRegister({ name, email, password, password_confirm, slug })
   const { data: existing } = await supabaseAdmin
     .from('tenants')
     .select('id')
-    .or(`slug.eq.${normalizedSlug},email.eq.${normalizedEmail}`)
+    .or(`slug.eq.${normalizedSlug},email.eq.${lookupEmail}`)
     .limit(1);
 
   if (existing && existing.length > 0) {
@@ -88,7 +87,7 @@ async function nativeRegister({ name, email, password, password_confirm, slug })
 
   const { error: tenantInsertError } = await supabaseAdmin
     .from('tenants')
-    .insert({ id: tenantId, name: normalizedName, email: normalizedEmail, slug: normalizedSlug, subdomain: normalizedSlug });
+    .insert({ id: tenantId, name: normalizedName, email: lookupEmail, slug: normalizedSlug, subdomain: normalizedSlug });
 
   if (tenantInsertError) {
     return { status: 409, body: { error: true, statusCode: 409, message: 'Este slug ou email já está em uso.' } };
@@ -96,7 +95,7 @@ async function nativeRegister({ name, email, password, password_confirm, slug })
 
   const { error: userInsertError } = await supabaseAdmin
     .from('users')
-    .insert({ id: userId, tenant_id: tenantId, email: normalizedEmail, password_hash: passwordHash, display_name: normalizedName, role: 'owner' });
+    .insert({ id: userId, tenant_id: tenantId, email: lookupEmail, password_hash: passwordHash, display_name: normalizedName, role: 'owner' });
 
   if (userInsertError) {
     await supabaseAdmin.from('tenants').delete().eq('id', tenantId);
@@ -110,7 +109,7 @@ async function nativeRegister({ name, email, password, password_confirm, slug })
     body: {
       token,
       csrfToken: token,
-      user: { id: userId, email: normalizedEmail, name: normalizedName, role: 'owner', password_strength: strength.label },
+      user: { id: userId, email: lookupEmail, name: normalizedName, role: 'owner', password_strength: strength.label },
       tenant: { id: tenantId, slug: normalizedSlug },
     },
     setCookie: setCookieHeader(token),

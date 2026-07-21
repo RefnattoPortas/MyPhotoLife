@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { proxyToBackend, jsonResponse } from '@/lib/api-proxy';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { normalizeEmail, errorResponse } from '@/lib/auth-native';
+import { errorResponse } from '@/lib/auth-native';
 
 function supabaseConfigured() {
   return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -44,7 +44,7 @@ export async function POST(request) {
   }
 
   if (supabaseConfigured()) {
-    const normalizedEmail = normalizeEmail(email);
+    const lookupEmail = email.trim().toLowerCase();
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
     const { data: resetToken, error: findError } = await supabaseAdmin
@@ -62,7 +62,7 @@ export async function POST(request) {
       .from('users')
       .select('id, email')
       .eq('id', resetToken.user_id)
-      .eq('email', normalizedEmail)
+      .eq('email', lookupEmail)
       .eq('is_active', true)
       .maybeSingle();
 

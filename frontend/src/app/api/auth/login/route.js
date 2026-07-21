@@ -2,17 +2,17 @@ import bcrypt from 'bcryptjs';
 import { proxyToBackend, jsonResponse } from '@/lib/api-proxy';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import {
-  normalizeEmail,
   signToken,
   setCookieHeader,
   errorResponse,
 } from '@/lib/auth-native';
 
 async function nativeLogin(email, password) {
+  const lookupEmail = email.trim().toLowerCase();
   const { data: user, error } = await supabaseAdmin
     .from('users')
     .select('id, email, password_hash, display_name, role, tenant_id')
-    .eq('email', normalizeEmail(email))
+    .eq('email', lookupEmail)
     .eq('is_active', true)
     .maybeSingle();
 

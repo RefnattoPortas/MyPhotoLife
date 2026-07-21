@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { proxyToBackend, jsonResponse } from '@/lib/api-proxy';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { normalizeEmail } from '@/lib/auth-native';
+
 
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
 const RATE_LIMIT_MAX_ATTEMPTS = 5;
@@ -38,9 +38,9 @@ export async function POST(request) {
     return jsonResponse({ message: genericMessage });
   }
 
-  const normalizedEmail = normalizeEmail(email);
+  const lookupEmail = email.trim().toLowerCase();
 
-  if (!checkResetRateLimit(normalizedEmail)) {
+  if (!checkResetRateLimit(lookupEmail)) {
     return jsonResponse({ error: true, statusCode: 429, message: 'Muitas tentativas. Tente novamente mais tarde.' }, 429);
   }
 
@@ -48,7 +48,7 @@ export async function POST(request) {
     const { data: user } = await supabaseAdmin
       .from('users')
       .select('id, email, display_name')
-      .eq('email', normalizedEmail)
+      .eq('email', lookupEmail)
       .eq('is_active', true)
       .maybeSingle();
 
@@ -65,7 +65,7 @@ export async function POST(request) {
     return jsonResponse({ message: genericMessage });
   }
 
-  const result = await proxyToBackend(request, { path: '/api/auth/forgot-password', body: { email: normalizedEmail } });
+  const result = await proxyToBackend(request, { path: '/api/auth/forgot-password', body: { email: lookupEmail } });
   if (result.body) return jsonResponse(result.body, result.status);
 
   return jsonResponse({ message: genericMessage });
