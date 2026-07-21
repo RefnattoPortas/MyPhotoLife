@@ -1,7 +1,12 @@
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
+import { proxyToBackend, jsonResponse } from '@/lib/api-proxy';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { normalizeEmail, errorResponse } from '@/lib/auth-native';
+
+function supabaseConfigured() {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
 
 function getPasswordStrength(password) {
   if (!password) return { level: 'fraca', label: 'Fraca' };
@@ -18,26 +23,27 @@ function getPasswordStrength(password) {
 }
 
 export async function POST(request) {
-  try {
-    const { token, email, password, password_confirm } = await request.json().catch(() => ({}));
+  const body = await request.json().catch(() => ({}));
+  const { token, email, password, password_confirm } = body;
 
-    if (!token || !email || !password) {
-      return Response.json({ error: true, statusCode: 400, message: 'Token, email e nova senha são obrigatórios.' }, { status: 400 });
-    }
+  if (!token || !email || !password) {
+    return jsonResponse({ error: true, statusCode: 400, message: 'Token, email e nova senha são obrigatórios.' }, 400);
+  }
 
-    if (password.length < 8 || password.length > 128) {
-      return Response.json({ error: true, statusCode: 400, message: 'Senha deve ter entre 8 e 128 caracteres.' }, { status: 400 });
-    }
+  if (password.length < 8 || password.length > 128) {
+    return jsonResponse({ error: true, statusCode: 400, message: 'Senha deve ter entre 8 e 128 caracteres.' }, 400);
+  }
 
-    if (password_confirm !== undefined && password !== password_confirm) {
-      return Response.json({ error: true, statusCode: 400, message: 'Senhas não conferem.' }, { status: 400 });
-    }
+  if (password_confirm !== undefined && password !== password_confirm) {
+    return jsonResponse({ error: true, statusCode: 400, message: 'Senhas não conferem.' }, 400);
+  }
 
-    const strength = getPasswordStrength(password);
-    if (strength.level === 'fraca') {
-      return Response.json({ error: true, statusCode: 400, message: 'Senha muito fraca. Use pelo menos 8 caracteres, incluindo maiúsculas, minúsculas, números e caracteres especiais.' }, { status: 400 });
-    }
+  const strength = getPasswordStrength(password);
+  if (strength.level === 'fraca') {
+    return jsonResponse({ error: true, statusCode: 400, message: 'Senha muito fraca. Use pelo menos 8 caracteres, incluindo maiúsculas, minúsculas, números e caracteres especiais.' }, 400);
+  }
 
+  if (supabaseConfigured()) {
     const normalizedEmail = normalizeEmail(email);
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
@@ -49,7 +55,7 @@ export async function POST(request) {
       .maybeSingle();
 
     if (findError || !resetToken) {
-      return Response.json({ error: true, statusCode: 400, message: 'Link de recuperação inválido, expirado ou já utilizado.' }, { status: 400 });
+      return jsonResponse({ error: true, statusCode: 400, message: 'Link de recuperação inválido, expirado ou já utilizado.' }, 400);
     }
 
     const { data: user } = await supabaseAdmin
@@ -61,41 +67,27 @@ export async function POST(request) {
       .maybeSingle();
 
     if (!user) {
-      return Response.json({ error: true, statusCode: 400, message: 'Link de recuperação inválido, expirado ou já utilizado.' }, { status: 400 });
+      return jsonResponse({ error: true, statusCode: 400, message: 'Link de recuperação inválido, expirado ou já utilizado.' }, 400);
     }
 
     if (new Date() > new Date(resetToken.expires_at)) {
-      return Response.json({ error: true, statusCode: 400, message: 'Este link de recuperação expirou. Solicite um novo.' }, { status: 400 });
+      return jsonResponse({ error: true, statusCode: 400, message: 'Este link de recuperação expirou. Solicite um novo.' }, 400);
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
     const now = new Date().toISOString();
 
-    const { error: updateTokenError } = await supabaseAdmin
-      .from('password_reset_tokens')
-      .update({ used_at: now })
-      .eq('id', resetToken.id);
+    await supabaseAdmin.from('password_reset_tokens').update({ used_at: now }).eq('id', resetToken.id);
+    await supabaseAdmin.from('users').update({ password_hash: passwordHash }).eq('id', user.id);
 
-    if (updateTokenError) {
-      const err = errorResponse('UNEXPECTED');
-      return Response.json(err.body, { status: err.status });
-    }
-
-    const { error: updateUserError } = await supabaseAdmin
-      .from('users')
-      .update({ password_hash: passwordHash })
-      .eq('id', user.id);
-
-    if (updateUserError) {
-      const err = errorResponse('UNEXPECTED');
-      return Response.json(err.body, { status: err.status });
-    }
-
-    return Response.json({ message: 'Senha redefinida com sucesso. Você já pode fazer login.' });
-  } catch {
-    const err = errorResponse('UNEXPECTED');
-    return Response.json(err.body, { status: err.status });
+    return jsonResponse({ message: 'Senha redefinida com sucesso. Você já pode fazer login.' });
   }
+
+  const proxyResult = await proxyToBackend(request, { path: '/api/auth/reset-password', body });
+  if (proxyResult.body) return jsonResponse(proxyResult.body, proxyResult.status);
+
+  const err = errorResponse('BACKEND_UNAVAILABLE');
+  return jsonResponse(err.body, err.status);
 }
 
 export async function OPTIONS() {

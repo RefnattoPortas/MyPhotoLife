@@ -1,6 +1,7 @@
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
+import { proxyToBackend, jsonResponse } from '@/lib/api-proxy';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import {
   normalizeEmail,
   validateSlug,
@@ -8,6 +9,10 @@ import {
   setCookieHeader,
   errorResponse,
 } from '@/lib/auth-native';
+
+function supabaseConfigured() {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
 
 function normalizeSlug(slug) {
   if (!slug) return '';
@@ -32,98 +37,105 @@ function getPasswordStrength(password) {
   return { level: 'forte', label: 'Forte' };
 }
 
-export async function POST(request) {
-  try {
-    const { name, email, password, password_confirm, slug } = await request.json().catch(() => ({}));
+async function nativeRegister({ name, email, password, password_confirm, slug }) {
+  if (!name || !email || !password || !slug) {
+    return { status: 400, body: { error: true, statusCode: 400, message: 'Nome, email, senha e slug são obrigatórios.' } };
+  }
 
-    if (!name || !email || !password || !slug) {
-      return Response.json({ error: true, statusCode: 400, message: 'Nome, email, senha e slug são obrigatórios.' }, { status: 400 });
-    }
+  const normalizedName = name.trim();
+  if (normalizedName.length < 2 || normalizedName.length > 100) {
+    return { status: 400, body: { error: true, statusCode: 400, message: 'Nome deve ter entre 2 e 100 caracteres.' } };
+  }
 
-    const normalizedName = name.trim();
-    if (normalizedName.length < 2 || normalizedName.length > 100) {
-      return Response.json({ error: true, statusCode: 400, message: 'Nome deve ter entre 2 e 100 caracteres.' }, { status: 400 });
-    }
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail.includes('@') || normalizedEmail.length > 254) {
+    return { status: 400, body: { error: true, statusCode: 400, message: 'Email inválido.' } };
+  }
 
-    const normalizedEmail = normalizeEmail(email);
-    if (!normalizedEmail.includes('@') || normalizedEmail.length > 254) {
-      return Response.json({ error: true, statusCode: 400, message: 'Email inválido.' }, { status: 400 });
-    }
+  if (password.length < 8 || password.length > 128) {
+    return { status: 400, body: { error: true, statusCode: 400, message: 'Senha deve ter entre 8 e 128 caracteres.' } };
+  }
 
-    if (password.length < 8 || password.length > 128) {
-      return Response.json({ error: true, statusCode: 400, message: 'Senha deve ter entre 8 e 128 caracteres.' }, { status: 400 });
-    }
+  if (password_confirm !== undefined && password !== password_confirm) {
+    return { status: 400, body: { error: true, statusCode: 400, message: 'Senhas não conferem.' } };
+  }
 
-    if (password_confirm !== undefined && password !== password_confirm) {
-      return Response.json({ error: true, statusCode: 400, message: 'Senhas não conferem.' }, { status: 400 });
-    }
+  const strength = getPasswordStrength(password);
+  if (strength.level === 'fraca') {
+    return { status: 400, body: { error: true, statusCode: 400, message: 'Senha muito fraca. Use pelo menos 8 caracteres, incluindo maiúsculas, minúsculas, números e caracteres especiais.' } };
+  }
 
-    const strength = getPasswordStrength(password);
-    if (strength.level === 'fraca') {
-      return Response.json({ error: true, statusCode: 400, message: 'Senha muito fraca. Use pelo menos 8 caracteres, incluindo maiúsculas, minúsculas, números e caracteres especiais.' }, { status: 400 });
-    }
+  const slugError = validateSlug(slug);
+  if (slugError) {
+    return { status: 400, body: { error: true, statusCode: 400, message: slugError } };
+  }
 
-    const slugError = validateSlug(slug);
-    if (slugError) {
-      return Response.json({ error: true, statusCode: 400, message: slugError }, { status: 400 });
-    }
+  const normalizedSlug = normalizeSlug(slug);
 
-    const normalizedSlug = normalizeSlug(slug);
+  const { data: existing } = await supabaseAdmin
+    .from('tenants')
+    .select('id')
+    .or(`slug.eq.${normalizedSlug},email.eq.${normalizedEmail}`)
+    .limit(1);
 
-    const { data: existing, error: checkError } = await supabaseAdmin
-      .from('tenants')
-      .select('id')
-      .or(`slug.eq.${normalizedSlug},email.eq.${normalizedEmail}`)
-      .limit(1);
+  if (existing && existing.length > 0) {
+    return { status: 409, body: { error: true, statusCode: 409, message: 'Este slug ou email já está em uso.' } };
+  }
 
-    if (checkError) {
-      const err = errorResponse('BACKEND_UNAVAILABLE');
-      return Response.json(err.body, { status: err.status });
-    }
+  const tenantId = crypto.randomUUID();
+  const userId = crypto.randomUUID();
+  const passwordHash = await bcrypt.hash(password, 12);
 
-    if (existing && existing.length > 0) {
-      return Response.json({ error: true, statusCode: 409, message: 'Este slug ou email já está em uso.' }, { status: 409 });
-    }
+  const { error: tenantInsertError } = await supabaseAdmin
+    .from('tenants')
+    .insert({ id: tenantId, name: normalizedName, email: normalizedEmail, slug: normalizedSlug, subdomain: normalizedSlug });
 
-    const tenantId = crypto.randomUUID();
-    const userId = crypto.randomUUID();
-    const passwordHash = await bcrypt.hash(password, 12);
+  if (tenantInsertError) {
+    return { status: 409, body: { error: true, statusCode: 409, message: 'Este slug ou email já está em uso.' } };
+  }
 
-    const { error: tenantInsertError } = await supabaseAdmin
-      .from('tenants')
-      .insert({ id: tenantId, name: normalizedName, email: normalizedEmail, slug: normalizedSlug, subdomain: normalizedSlug });
+  const { error: userInsertError } = await supabaseAdmin
+    .from('users')
+    .insert({ id: userId, tenant_id: tenantId, email: normalizedEmail, password_hash: passwordHash, display_name: normalizedName, role: 'owner' });
 
-    if (tenantInsertError) {
-      return Response.json({ error: true, statusCode: 409, message: 'Este slug ou email já está em uso.' }, { status: 409 });
-    }
+  if (userInsertError) {
+    await supabaseAdmin.from('tenants').delete().eq('id', tenantId);
+    return { status: 500, body: { error: true, statusCode: 500, message: 'Erro ao criar conta. Tente novamente.' } };
+  }
 
-    const { error: userInsertError } = await supabaseAdmin
-      .from('users')
-      .insert({ id: userId, tenant_id: tenantId, email: normalizedEmail, password_hash: passwordHash, display_name: normalizedName, role: 'owner' });
+  const token = signToken({ sub: userId, tenantId, role: 'owner' });
 
-    if (userInsertError) {
-      await supabaseAdmin.from('tenants').delete().eq('id', tenantId);
-      return Response.json({ error: true, statusCode: 500, message: 'Erro ao criar conta. Tente novamente.' }, { status: 500 });
-    }
-
-    const token = signToken({ sub: userId, tenantId, role: 'owner' });
-
-    return new Response(JSON.stringify({
+  return {
+    status: 201,
+    body: {
       token,
       csrfToken: token,
       user: { id: userId, email: normalizedEmail, name: normalizedName, role: 'owner', password_strength: strength.label },
       tenant: { id: tenantId, slug: normalizedSlug },
-    }), {
-      status: 201,
-      headers: {
-        'Content-Type': 'application/json',
-        'Set-Cookie': setCookieHeader(token),
-      },
-    });
-  } catch {
-    const err = errorResponse('UNEXPECTED');
-    return Response.json(err.body, { status: err.status });
+    },
+    setCookie: setCookieHeader(token),
+  };
+}
+
+export async function POST(request) {
+  const body = await request.json().catch(() => ({}));
+
+  if (supabaseConfigured()) {
+    const result = await nativeRegister(body);
+    if (result.setCookie) {
+      return new Response(JSON.stringify(result.body), {
+        status: result.status,
+        headers: { 'Content-Type': 'application/json', 'Set-Cookie': result.setCookie },
+      });
+    }
+    return jsonResponse(result.body, result.status);
   }
+
+  const proxyResult = await proxyToBackend(request, { path: '/api/auth/register', body });
+  if (proxyResult.body) return jsonResponse(proxyResult.body, proxyResult.status);
+
+  const err = errorResponse('BACKEND_UNAVAILABLE');
+  return jsonResponse(err.body, err.status);
 }
 
 export async function OPTIONS() {

@@ -13,7 +13,9 @@ export async function proxyToBackend(request, { method, path, body }) {
     };
   }
 
-  const url = `${BACKEND_URL}${path}`;
+  const normalizedBase = BACKEND_URL.replace(/\/+$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = `${normalizedBase}${normalizedPath}`;
 
   try {
     const headers = {

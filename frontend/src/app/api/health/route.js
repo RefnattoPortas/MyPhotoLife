@@ -1,11 +1,11 @@
-import { proxyToBackend, jsonResponse } from '@/lib/api-proxy';
-
 export async function GET() {
-  const result = await proxyToBackend(new Request('http://localhost'), { path: '/api/health' });
+  const hasBackend = !!process.env.API_URL;
+  const hasNativeAuth = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  if (result.body) {
-    return jsonResponse(result.body, result.status);
-  }
-
-  return jsonResponse({ status: 'ok', source: 'next-api', timestamp: new Date().toISOString() });
+  return Response.json({
+    status: hasBackend || hasNativeAuth ? 'ok' : 'degraded',
+    source: 'next-api',
+    timestamp: new Date().toISOString(),
+    auth_source: hasNativeAuth ? 'supabase' : hasBackend ? 'backend' : 'none',
+  }, { status: hasBackend || hasNativeAuth ? 200 : 503 });
 }

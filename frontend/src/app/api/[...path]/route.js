@@ -39,5 +39,6 @@ export async function OPTIONS() {
 
 function buildPath(params) {
   const path = params?.path || [];
-  return `/api/${path.join('/')}`;
+  const joined = path.join('/');
+  return joined.startsWith('/') ? joined : `/api/${joined}`;
 }
