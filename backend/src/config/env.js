@@ -16,6 +16,8 @@ const env = {
   port: parseInt(process.env.PORT || '3001', 10),
   host: process.env.HOST || '0.0.0.0',
 
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+
   db: {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '3306', 10),

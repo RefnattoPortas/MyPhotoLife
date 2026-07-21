@@ -1,8 +1,27 @@
 import './globals.css';
+import { APP_NAME, APP_TAGLINE, getAppUrl } from '@/lib/app-url';
+
+const appUrl = getAppUrl();
 
 export const metadata = {
-  title: 'MyPhotoLife - Portfólio Profissional para Fotógrafos',
+  title: `${APP_NAME} - ${APP_TAGLINE}`,
   description: 'Plataforma SaaS para fotógrafos gerenciarem portfólios e venderem conteúdo digital.',
+  metadataBase: new URL(appUrl),
+  openGraph: {
+    title: `${APP_NAME} - ${APP_TAGLINE}`,
+    description: 'Plataforma SaaS para fotógrafos gerenciarem portfólios e venderem conteúdo digital.',
+    url: appUrl,
+    siteName: APP_NAME,
+    locale: 'pt_BR',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${APP_NAME} - ${APP_TAGLINE}`,
+    description: 'Plataforma SaaS para fotógrafos gerenciarem portfólios e venderem conteúdo digital.',
+  },
+  robots: { index: true, follow: true },
+  alternates: { canonical: appUrl },
 };
 
 export default function RootLayout({ children }) {

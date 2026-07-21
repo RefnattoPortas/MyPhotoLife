@@ -3,6 +3,13 @@ import { unauthorized, badRequest } from '../utils/errors.js';
 
 const CSRF_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
+const CSRF_EXEMPT_ROUTES = [
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+];
+
 async function authPlugin(fastify) {
   fastify.decorate('authenticate', async function (request, _reply) {
     try {
@@ -34,7 +41,7 @@ async function authPlugin(fastify) {
 
   fastify.decorate('verifyCsrf', async function (request) {
     if (!CSRF_METHODS.includes(request.method)) return;
-    if (request.url === '/api/auth/login' || request.url === '/api/auth/register') return;
+    if (CSRF_EXEMPT_ROUTES.includes(request.url)) return;
     if (request.url.startsWith('/api/orders/webhook')) return;
     const headerToken = request.headers['x-csrf-token'];
     const cookieValue = request.cookies?.[fastify.cookieName];
@@ -45,7 +52,7 @@ async function authPlugin(fastify) {
 
   fastify.addHook('onRequest', async (request, _reply) => {
     if (!CSRF_METHODS.includes(request.method)) return;
-    if (request.url === '/api/auth/login' || request.url === '/api/auth/register') return;
+    if (CSRF_EXEMPT_ROUTES.includes(request.url)) return;
     if (request.url.startsWith('/api/orders/webhook')) return;
     if (!request.cookies?.[fastify.cookieName]) return;
     await fastify.verifyCsrf(request);

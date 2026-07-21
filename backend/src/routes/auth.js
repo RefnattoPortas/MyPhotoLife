@@ -1,14 +1,21 @@
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { getPool } from '../config/database.js';
-import { badRequest, unauthorized } from '../utils/errors.js';
+import { badRequest, unauthorized, tooManyRequests } from '../utils/errors.js';
+import { sendPasswordResetEmail } from '../services/email.js';
 
 const SALT_ROUNDS = 12;
+const PASSWORD_RESET_EXPIRY_HOURS = 1;
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
+const RATE_LIMIT_MAX_ATTEMPTS = 5;
+const resetAttempts = new Map();
 
 const RESERVED_SLUGS = [
   'api', 'login', 'register', 'dashboard', 'admin', 'support',
   'www', 'app', 'dev', 'test', 'mail', 'webmail',
   'billing', 'help', 'status', 'docs', 'cdn', 'static',
+  'suporte', 'termos', 'privacidade', 'checkout', 'pagamentos',
 ];
 
 function normalizeEmail(email) {
@@ -23,6 +30,7 @@ function normalizeEmail(email) {
 }
 
 function getPasswordStrength(password) {
+  if (!password) return { level: 'fraca', label: 'Fraca' };
   let score = 0;
   if (password.length >= 8) score++;
   if (password.length >= 12) score++;
@@ -45,9 +53,47 @@ function validateSlug(slug) {
   return null;
 }
 
+function normalizeSlug(slug) {
+  if (!slug) return '';
+  return slug.toLowerCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/--+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 function setTokenCookie(fastify, reply, token) {
   reply.setCookie(fastify.cookieName, token, fastify.cookieOptions);
 }
+
+function checkResetRateLimit(email) {
+  const key = `reset:${email}`;
+  const now = Date.now();
+  const entry = resetAttempts.get(key);
+  if (entry) {
+    if (entry.count >= RATE_LIMIT_MAX_ATTEMPTS && now - entry.resetAt < RATE_LIMIT_WINDOW) {
+      return false;
+    }
+    if (now - entry.resetAt >= RATE_LIMIT_WINDOW) {
+      resetAttempts.set(key, { count: 1, resetAt: now });
+      return true;
+    }
+    entry.count++;
+    return true;
+  }
+  resetAttempts.set(key, { count: 1, resetAt: now });
+  return true;
+}
+
+function cleanupResetRateLimit() {
+  const now = Date.now();
+  for (const [key, entry] of resetAttempts) {
+    if (now - entry.resetAt >= RATE_LIMIT_WINDOW) {
+      resetAttempts.delete(key);
+    }
+  }
+}
+setInterval(cleanupResetRateLimit, RATE_LIMIT_WINDOW);
 
 export default async function authRoutes(fastify) {
   fastify.post('/register', async (request, reply) => {
@@ -81,18 +127,15 @@ export default async function authRoutes(fastify) {
 
     const passwordStrength = getPasswordStrength(password);
     if (passwordStrength.level === 'fraca') {
-      throw badRequest(
-        'Senha muito fraca. Use pelo menos 8 caracteres, incluindo maiúsculas, minúsculas, números e caracteres especiais'
-      );
+      throw badRequest('Senha muito fraca. Use pelo menos 8 caracteres, incluindo maiúsculas, minúsculas, números e caracteres especiais');
     }
 
     const slugError = validateSlug(slug);
     if (slugError) throw badRequest(slugError);
 
-    const normalizedSlug = slug.toLowerCase().trim();
+    const normalizedSlug = normalizeSlug(slug);
 
     const pool = getPool();
-
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
@@ -147,11 +190,10 @@ export default async function authRoutes(fastify) {
     const { email, password } = request.body || {};
 
     if (!email || !password) {
-      throw badRequest('Email e senha são obrigatórios');
+      throw badRequest('Informe seu email e senha');
     }
 
     const normalizedEmail = normalizeEmail(email);
-
     const pool = getPool();
 
     const [users] = await pool.execute(
@@ -205,7 +247,7 @@ export default async function authRoutes(fastify) {
 
   fastify.post('/logout', async (_request, reply) => {
     reply.clearCookie(fastify.cookieName, { path: '/' });
-    reply.send({ message: 'Logged out successfully' });
+    reply.send({ message: 'Sessão encerrada com sucesso' });
   });
 
   fastify.get('/session', { preHandler: [fastify.authenticate] }, async (request) => {
@@ -259,5 +301,150 @@ export default async function authRoutes(fastify) {
     }
 
     return { user: users[0] };
+  });
+
+  fastify.get('/slug-check', async (request) => {
+    const { slug } = request.query;
+    if (!slug) {
+      return { available: false, error: 'Slug é obrigatório' };
+    }
+
+    const slugError = validateSlug(slug);
+    if (slugError) {
+      return { available: false, error: slugError };
+    }
+
+    const normalizedSlug = normalizeSlug(slug);
+    const pool = getPool();
+    const [rows] = await pool.execute(
+      'SELECT id FROM tenants WHERE slug = ? LIMIT 1',
+      [normalizedSlug],
+    );
+
+    return { available: rows.length === 0, slug: normalizedSlug };
+  });
+
+  fastify.post('/forgot-password', async (request, reply) => {
+    const { email } = request.body || {};
+
+    const genericMessage = 'Se existir uma conta com este email, enviaremos as instruções de recuperação.';
+
+    if (!email) {
+      return reply.send({ message: genericMessage });
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail.includes('@')) {
+      return reply.send({ message: genericMessage });
+    }
+
+    if (!checkResetRateLimit(normalizedEmail)) {
+      throw tooManyRequests('Muitas tentativas. Tente novamente mais tarde.');
+    }
+
+    const pool = getPool();
+    const [users] = await pool.execute(
+      'SELECT id, email, display_name FROM users WHERE email = ? AND is_active = TRUE LIMIT 1',
+      [normalizedEmail],
+    );
+
+    if (users.length === 0) {
+      return reply.send({ message: genericMessage });
+    }
+
+    const user = users[0];
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const tokenId = uuidv4();
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRY_HOURS * 60 * 60 * 1000);
+
+    await pool.execute(
+      'INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at) VALUES (?, ?, ?, ?)',
+      [tokenId, user.id, tokenHash, expiresAt],
+    );
+
+    try {
+      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}&email=${encodeURIComponent(normalizedEmail)}`;
+      await sendPasswordResetEmail({ to: normalizedEmail, name: user.display_name, resetUrl });
+    } catch (err) {
+      console.error('[Password Reset] Failed to send email:', err.message);
+    }
+
+    reply.send({ message: genericMessage });
+  });
+
+  fastify.post('/reset-password', async (request, reply) => {
+    const { token, email, password, password_confirm } = request.body || {};
+
+    if (!token || !email || !password) {
+      throw badRequest('Token, email e nova senha são obrigatórios');
+    }
+
+    if (password.length < 8) {
+      throw badRequest('Senha deve ter pelo menos 8 caracteres');
+    }
+
+    if (password.length > 128) {
+      throw badRequest('Senha deve ter no máximo 128 caracteres');
+    }
+
+    if (password_confirm !== undefined && password !== password_confirm) {
+      throw badRequest('Senhas não conferem');
+    }
+
+    const passwordStrength = getPasswordStrength(password);
+    if (passwordStrength.level === 'fraca') {
+      throw badRequest('Senha muito fraca. Use pelo menos 8 caracteres, incluindo maiúsculas, minúsculas, números e caracteres especiais');
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const pool = getPool();
+
+    const [tokens] = await pool.execute(
+      `SELECT prt.id, prt.user_id, prt.expires_at, u.email
+       FROM password_reset_tokens prt
+       JOIN users u ON u.id = prt.user_id
+       WHERE prt.token_hash = ? AND prt.used_at IS NULL AND u.email = ? AND u.is_active = TRUE
+       LIMIT 1`,
+      [tokenHash, normalizedEmail],
+    );
+
+    if (tokens.length === 0) {
+      throw badRequest('Link de recuperação inválido, expirado ou já utilizado');
+    }
+
+    const resetToken = tokens[0];
+
+    if (new Date() > new Date(resetToken.expires_at)) {
+      throw badRequest('Este link de recuperação expirou. Solicite um novo.');
+    }
+
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    const now = new Date();
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      await conn.execute(
+        'UPDATE password_reset_tokens SET used_at = ? WHERE id = ?',
+        [now, resetToken.id],
+      );
+
+      await conn.execute(
+        'UPDATE users SET password_hash = ? WHERE id = ?',
+        [passwordHash, resetToken.user_id],
+      );
+
+      await conn.commit();
+
+      reply.send({ message: 'Senha redefinida com sucesso. Você já pode fazer login.' });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
   });
 }

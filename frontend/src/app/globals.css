@@ -24,6 +24,10 @@
     font-family: var(--font-family);
   }
 
+  input, select, textarea, button {
+    font-size: 16px;
+  }
+
   ::selection {
     background-color: rgba(0, 0, 0, 0.85);
     color: white;

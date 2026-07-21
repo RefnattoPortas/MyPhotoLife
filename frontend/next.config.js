@@ -8,16 +8,12 @@ const nextConfig = {
       },
     ],
   },
-  // Todas as rotas /api/* são delegadas ao backend Fastify (MySQL)
-  // O Next.js mantém apenas o frontend (páginas e componentes)
-  async rewrites() {
-    const apiUrl = process.env.API_URL || 'http://localhost:3001';
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
-      },
-    ];
+  // API routes são tratadas por Next.js Route Handlers (app/api/)
+  // O backend Fastify externo é acessado via proxy nos Route Handlers
+  // Não há rewrites - as rotas existem nativamente no Next.js
+  // Configuração de CORS é feita nos próprios handlers
+  serverRuntimeConfig: {
+    apiUrl: process.env.API_URL || '',
   },
 };
 

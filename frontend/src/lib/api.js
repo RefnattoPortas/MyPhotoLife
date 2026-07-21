@@ -2,6 +2,22 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 let csrfToken = null;
 
+const ERROR_MESSAGES = {
+  400: 'Verifique os dados informados e tente novamente.',
+  401: 'Email ou senha inválidos.',
+  403: 'Você não tem permissão para realizar esta ação.',
+  404: 'Serviço temporariamente indisponível. Tente novamente mais tarde.',
+  409: 'Este recurso já está em uso.',
+  429: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
+  500: 'Erro interno do servidor. Tente novamente mais tarde.',
+  503: 'Serviço temporariamente indisponível.',
+};
+
+function getErrorMessage(status, fallback) {
+  if (status >= 500) return ERROR_MESSAGES[500];
+  return ERROR_MESSAGES[status] || fallback || 'Ocorreu um erro inesperado. Tente novamente.';
+}
+
 export function setCsrfToken(token) {
   csrfToken = token;
 }
@@ -19,15 +35,24 @@ async function request(path, options = {}) {
     headers['x-csrf-token'] = csrfToken;
   }
 
-  const res = await fetch(url, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include',
+    });
+  } catch (err) {
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão.');
+    }
+    throw new Error('Erro de conexão. Tente novamente.');
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message || `HTTP ${res.status}`);
+    const message = body.message || getErrorMessage(res.status);
+    throw new Error(message);
   }
 
   return res.json();
@@ -40,6 +65,9 @@ export const api = {
     logout: () => request('/auth/logout', { method: 'POST' }),
     session: () => request('/auth/session'),
     me: () => request('/auth/me'),
+    forgotPassword: (data) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify(data) }),
+    resetPassword: (data) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify(data) }),
+    checkSlug: (slug) => request(`/auth/slug-check?slug=${encodeURIComponent(slug)}`),
   },
   albums: {
     list: () => request('/albums'),
@@ -62,7 +90,7 @@ export const api = {
         body: form,
       }).then(async (r) => {
         const body = await r.json();
-        if (!r.ok) throw new Error(body.message || `HTTP ${r.status}`);
+        if (!r.ok) throw new Error(body.message || getErrorMessage(r.status));
         return body;
       });
     },

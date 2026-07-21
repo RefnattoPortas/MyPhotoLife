@@ -103,10 +103,11 @@ export async function buildApp() {
   app.setErrorHandler((error, request, reply) => {
     const statusCode = error.statusCode || 500;
     const code = error.code || 'INTERNAL_ERROR';
-    const message = statusCode === 500 ? error.message : error.message;
 
+    let message = error.message;
     if (statusCode === 500) {
       console.error('[ERROR]', error);
+      message = 'Erro interno do servidor. Tente novamente mais tarde.';
     }
 
     reply.status(statusCode).send({

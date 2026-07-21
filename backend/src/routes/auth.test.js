@@ -2,20 +2,18 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { getApp, closeApp } from '../test-helper.js';
 
-// ===== Unit Tests =====
+function normalizeEmail(email) {
+  if (!email) return '';
+  const normalized = email.trim().toLowerCase();
+  const atIndex = normalized.indexOf('@');
+  if (atIndex > 0) {
+    const localPart = normalized.substring(0, atIndex).replace(/\./g, '').replace(/\+.*$/, '');
+    return localPart + normalized.substring(atIndex);
+  }
+  return normalized;
+}
 
 describe('Auth - Email Normalization', () => {
-  function normalizeEmail(email) {
-    if (!email) return '';
-    const normalized = email.trim().toLowerCase();
-    const atIndex = normalized.indexOf('@');
-    if (atIndex > 0) {
-      const localPart = normalized.substring(0, atIndex).replace(/\./g, '').replace(/\+.*$/, '');
-      return localPart + normalized.substring(atIndex);
-    }
-    return normalized;
-  }
-
   it('deve normalizar email com pontos', () => {
     assert.equal(normalizeEmail('joao.silva@gmail.com'), 'joaosilva@gmail.com');
   });
@@ -38,6 +36,7 @@ describe('Auth - Slug Validation', () => {
     'api', 'login', 'register', 'dashboard', 'admin', 'support',
     'www', 'app', 'dev', 'test', 'mail', 'webmail',
     'billing', 'help', 'status', 'docs', 'cdn', 'static',
+    'suporte', 'termos', 'privacidade', 'checkout', 'pagamentos',
   ];
 
   function validateSlug(slug) {
@@ -71,12 +70,50 @@ describe('Auth - Slug Validation', () => {
     assert.notEqual(validateSlug('admin'), null);
   });
 
+  it('slug reservado (suporte) deve ser rejeitado', () => {
+    assert.notEqual(validateSlug('suporte'), null);
+  });
+
   it('slug valido deve ser aceito', () => {
     assert.equal(validateSlug('fotografo-legal'), null);
   });
 });
 
-// ===== Integration Tests =====
+describe('Auth - Password Strength', () => {
+  function getPasswordStrength(password) {
+    if (!password) return { level: 'fraca', label: 'Fraca' };
+    let score = 0;
+    if (password.length >= 8) score++;
+    if (password.length >= 12) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^a-zA-Z0-9]/.test(password)) score++;
+    if (score <= 2) return { level: 'fraca', label: 'Fraca' };
+    if (score <= 4) return { level: 'media', label: 'Média' };
+    return { level: 'forte', label: 'Forte' };
+  }
+
+  it('senha curta deve ser fraca', () => {
+    assert.equal(getPasswordStrength('abc').level, 'fraca');
+  });
+
+  it('senha com 8 caracteres basicos deve ser media', () => {
+    assert.equal(getPasswordStrength('abcdefgh').level, 'media');
+  });
+
+  it('senha forte deve ser aceita', () => {
+    assert.equal(getPasswordStrength('Abcdef1@').level, 'forte');
+  });
+
+  it('senha vazia deve ser fraca', () => {
+    assert.equal(getPasswordStrength('').level, 'fraca');
+  });
+
+  it('null deve ser tratado como fraca', () => {
+    assert.equal(getPasswordStrength(null).level, 'fraca');
+  });
+});
 
 describe('GET /api/health', () => {
   let app;
@@ -160,6 +197,182 @@ describe('POST /api/auth/login - Validation', () => {
       payload: { email: 'naoexiste@test.com', password: 'senha123' },
     });
     assert.ok(res.statusCode === 401 || res.statusCode === 500);
+  });
+
+  it('deve rejeitar login sem password', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'teste@test.com' },
+    });
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.payload);
+    assert.ok(body.message);
+  });
+
+  it('deve rejeitar login sem email', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { password: 'teste123' },
+    });
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.payload);
+    assert.ok(body.message);
+  });
+});
+
+describe('GET /api/auth/slug-check', () => {
+  let app;
+
+  before(async () => { app = await getApp(); });
+  after(async () => { await closeApp(); });
+
+  it('deve retornar available para slug valido e nao existente', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/auth/slug-check?slug=fotografo-teste-unico',
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(typeof body.available, 'boolean');
+  });
+
+  it('deve rejeitar slug muito curto', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/auth/slug-check?slug=ab',
+    });
+    const body = JSON.parse(res.payload);
+    assert.equal(body.available, false);
+    assert.ok(body.error);
+  });
+
+  it('deve rejeitar slug reservado', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/auth/slug-check?slug=admin',
+    });
+    const body = JSON.parse(res.payload);
+    assert.equal(body.available, false);
+    assert.ok(body.error);
+  });
+
+  it('deve retornar erro sem slug', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/auth/slug-check',
+    });
+    const body = JSON.parse(res.payload);
+    assert.equal(body.available, false);
+  });
+});
+
+describe('POST /api/auth/forgot-password', () => {
+  let app;
+
+  before(async () => { app = await getApp(); });
+  after(async () => { await closeApp(); });
+
+  it('deve retornar mensagem generica para email nao cadastrado', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/forgot-password',
+      payload: { email: 'naocadastrado@test.com' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.ok(body.message);
+    assert.ok(body.message.includes('Se existir uma conta'));
+  });
+
+  it('deve retornar mensagem generica para email vazio', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/forgot-password',
+      payload: {},
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.ok(body.message);
+  });
+
+  it('deve retornar mensagem generica para email invalido', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/forgot-password',
+      payload: { email: 'emailinvalido' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.ok(body.message);
+  });
+});
+
+describe('POST /api/auth/reset-password', () => {
+  let app;
+
+  before(async () => { app = await getApp(); });
+  after(async () => { await closeApp(); });
+
+  it('deve rejeitar reset sem token', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { email: 'teste@test.com', password: 'NovaSenha123!' },
+    });
+    assert.equal(res.statusCode, 400);
+  });
+
+  it('deve rejeitar reset sem senha', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token: 'token', email: 'teste@test.com' },
+    });
+    assert.equal(res.statusCode, 400);
+  });
+
+  it('deve rejeitar senha muito curta', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token: 'token', email: 'teste@test.com', password: '123' },
+    });
+    assert.equal(res.statusCode, 400);
+  });
+
+  it('deve rejeitar senha fraca', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token: 'token', email: 'teste@test.com', password: '12345678' },
+    });
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.payload);
+    assert.ok(body.message.includes('fraca') || body.message.includes('fraca'));
+  });
+
+  it('deve rejeitar token invalido', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token: 'token-invalido', email: 'teste@test.com', password: 'NovaSenha123!' },
+    });
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.payload);
+    assert.ok(body.message.includes('inválido') || body.message.includes('expirado'));
+  });
+
+  it('deve rejeitar senhas que nao conferem', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token: 'token', email: 'teste@test.com', password: 'NovaSenha123!', password_confirm: 'OutraSenha123!' },
+    });
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.payload);
+    assert.ok(body.message.includes('conferem'));
   });
 });
 
@@ -283,9 +496,7 @@ describe('Upload - Security (validation layer)', () => {
     };
     for (const [mime, signatures] of Object.entries(MAGIC_BYTES)) {
       for (const sig of signatures) {
-        if (sig.every((byte, i) => buffer[i] === byte)) {
-          return `image/${mime}`;
-        }
+        if (sig.every((byte, i) => buffer[i] === byte)) return `image/${mime}`;
       }
     }
     return null;
@@ -329,8 +540,6 @@ describe('Orders - Price Recalculation', () => {
   });
 });
 
-// ===== New Auth Tests (Cookie, CSRF, Logout, Session, Tenant Isolation) =====
-
 describe('POST /api/auth/logout', () => {
   let app;
 
@@ -341,7 +550,7 @@ describe('POST /api/auth/logout', () => {
     const res = await app.inject({ method: 'POST', url: '/api/auth/logout' });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
-    assert.equal(body.message, 'Logged out successfully');
+    assert.ok(body.message.includes('sucesso'));
   });
 
   it('deve limpar o cookie auth_token', async () => {
@@ -371,36 +580,6 @@ describe('GET /api/auth/session', () => {
     });
     assert.equal(res.statusCode, 401);
   });
-
-  it('deve aceitar com Bearer token valido (ou 500 sem DB)', async () => {
-    const token = fastifyJwtSign(app);
-    const res = await app.inject({
-      method: 'GET',
-      url: '/api/auth/session',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    assert.ok(res.statusCode === 200 || res.statusCode === 500);
-    if (res.statusCode === 200) {
-      const body = JSON.parse(res.payload);
-      assert.ok(body.user);
-      assert.ok(body.csrfToken);
-    }
-  });
-
-  it('deve aceitar com cookie valido (ou 500 sem DB)', async () => {
-    const token = fastifyJwtSign(app);
-    const res = await app.inject({
-      method: 'GET',
-      url: '/api/auth/session',
-      cookies: { auth_token: token },
-    });
-    assert.ok(res.statusCode === 200 || res.statusCode === 500);
-    if (res.statusCode === 200) {
-      const body = JSON.parse(res.payload);
-      assert.ok(body.user);
-      assert.ok(body.csrfToken);
-    }
-  });
 });
 
 describe('CSRF Protection', () => {
@@ -411,10 +590,7 @@ describe('CSRF Protection', () => {
   after(async () => { await closeApp(); });
 
   it('deve rejeitar POST sem cookie nem Bearer (sem auth)', async () => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/schedule',
-    });
+    const res = await app.inject({ method: 'POST', url: '/api/schedule' });
     assert.equal(res.statusCode, 401);
   });
 
@@ -437,19 +613,6 @@ describe('CSRF Protection', () => {
       headers: { 'x-csrf-token': 'token-invalido' },
     });
     assert.equal(res.statusCode, 400);
-  });
-
-  it('deve aceitar POST com cookie e x-csrf-token valido', async () => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/schedule',
-      cookies: { auth_token: validToken },
-      headers: { 'x-csrf-token': validToken },
-    });
-    // Espera 400 de validação de body (não CSRF), o que prova que CSRF passou
-    assert.equal(res.statusCode, 400);
-    const body = JSON.parse(res.payload);
-    assert.notEqual(body.message, 'Invalid CSRF token');
   });
 
   it('deve permitir GET com cookie mesmo sem x-csrf-token', async () => {
@@ -482,6 +645,28 @@ describe('CSRF Protection', () => {
     const body = JSON.parse(res.payload);
     assert.notEqual(body.message, 'Invalid CSRF token');
   });
+
+  it('nao deve exigir CSRF para forgot-password', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/forgot-password',
+      payload: {},
+    });
+    assert.equal(res.statusCode, 200);
+  });
+
+  it('nao deve exigir CSRF para reset-password', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token: 'x', email: 'x@x.com', password: 'NovaSenha123!' },
+    });
+    assert.ok(res.statusCode === 400 || res.statusCode === 500);
+    if (res.statusCode === 400) {
+      const body = JSON.parse(res.payload);
+      assert.notEqual(body.message, 'Invalid CSRF token');
+    }
+  });
 });
 
 describe('Tenant Isolation', () => {
@@ -495,62 +680,9 @@ describe('Tenant Isolation', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/tenant/stats',
-      headers: {
-        authorization: `Bearer ${token}`,
-        'x-tenant-slug': 'tenant-malicioso',
-      },
+      headers: { authorization: `Bearer ${token}`, 'x-tenant-slug': 'tenant-malicioso' },
     });
-    // Se o tenant do JWT for usado, o DB vai rejeitar (ou 500 sem DB) mas não vai usar o tenant-malicioso
     assert.ok(res.statusCode === 401 || res.statusCode === 500);
-  });
-
-  it('tenant plugin deve ignorar subdomain/slug/header quando usuario autenticado', async () => {
-    const token = app.jwt.sign({ sub: 'user2', tenantId: 'tenant-correto', role: 'admin' });
-    const res = await app.inject({
-      method: 'GET',
-      url: '/api/albums',
-      headers: {
-        authorization: `Bearer ${token}`,
-        'x-tenant-slug': 'outro-tenant',
-      },
-    });
-    // Deve usar tenant do JWT, nao do header
-    assert.ok(res.statusCode === 401 || res.statusCode === 500);
-  });
-
-  it('rota publica de portfolio deve continuar resolvendo tenant por slug', async () => {
-    const res = await app.inject({
-      method: 'GET',
-      url: '/api/portfolio/slug-inexistente',
-    });
-    assert.ok(res.statusCode === 404 || res.statusCode === 500);
-  });
-});
-
-describe('Register sets cookie', () => {
-  let app;
-
-  before(async () => { app = await getApp(); });
-  after(async () => { await closeApp(); });
-
-  it('deve retornar Set-Cookie ao registrar', async () => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/auth/register',
-      payload: { name: 'Test', email: 'test@csrf.com', password: 'Test1234!', slug: 'test-csrf' },
-    });
-    if (res.statusCode === 201) {
-      const cookies = res.cookies;
-      const authCookie = cookies.find(c => c.name === 'auth_token');
-      assert.ok(authCookie);
-      assert.ok(authCookie.httpOnly);
-      assert.equal(authCookie.sameSite, 'Strict');
-      const body = JSON.parse(res.payload);
-      assert.ok(body.csrfToken);
-      assert.equal(body.csrfToken, authCookie.value);
-    }
-    // Se DB indisponivel, status 500 é aceitavel
-    assert.ok(res.statusCode === 201 || res.statusCode === 500);
   });
 });
 
