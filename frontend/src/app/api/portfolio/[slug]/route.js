@@ -63,7 +63,7 @@ export async function GET(_, { params }) {
       return jsonResponse({ error: true, code: 'NOT_FOUND', message: 'Portfólio não encontrado' }, 404);
     }
 
-    safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 1, tenantRef: tenant.id?.slice(0, 8), code: 200, detail: JSON.stringify({ slug, is_active: tenant.is_active, updated_at: tenant.updated_at, has_tc: !!tenant.theme_config }) });
+    safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 1, tenantRef: tenant.id?.slice(0, 8), code: 200, detail: JSON.stringify({ slug, is_active: tenant.is_active, updated_at: tenant.updated_at, has_tc: !!tenant.theme_config, slug_len: slug.length, slug_chars: slug.split('').map(c => c.charCodeAt(0)) }) });
 
     const photographer = buildPublicPhotographer(tenant);
 
@@ -136,7 +136,7 @@ export async function GET(_, { params }) {
       photographer,
       albums: albumsWithMedia,
       schedule,
-      _debug: { updated_at: tenant.updated_at, bg: tenant.theme_config?.bg_color },
+      _debug: { id: tenant.id, updated_at: tenant.updated_at, bg: tenant.theme_config?.bg_color },
     });
   } catch {
     return jsonResponse({ error: true, code: 'UNEXPECTED', message: 'Não foi possível carregar o portfólio' }, 500);
