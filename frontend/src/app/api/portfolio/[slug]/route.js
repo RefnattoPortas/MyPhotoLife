@@ -1,6 +1,18 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { supabaseConfigured, jsonResponse } from '@/lib/api-auth';
 
+function safeLog({ operation, table, rows, tenantRef, code, detail }) {
+  console.log(JSON.stringify({
+    severity: code >= 500 ? 'error' : 'warn',
+    operation,
+    table,
+    rows,
+    tenantRef,
+    code,
+    ...(detail ? { detail } : {}),
+  }));
+}
+
 function buildPublicPhotographer(tenant) {
   const p = {
     name: tenant.name,
@@ -47,8 +59,11 @@ export async function GET(_, { params }) {
       .maybeSingle();
 
     if (!tenant) {
+      safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 0, code: 404, detail: JSON.stringify({ slug }) });
       return jsonResponse({ error: true, code: 'NOT_FOUND', message: 'Portfólio não encontrado' }, 404);
     }
+
+    safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 1, tenantRef: tenant.id?.slice(0, 8), code: 200, detail: JSON.stringify({ slug, is_active: tenant.is_active, updated_at: tenant.updated_at, has_tc: !!tenant.theme_config }) });
 
     const photographer = buildPublicPhotographer(tenant);
 

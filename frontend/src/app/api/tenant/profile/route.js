@@ -43,6 +43,7 @@ export async function GET(request) {
       return jsonResponse({ message: 'Perfil não encontrado' }, 404);
     }
 
+    safeLog({ operation: 'profile_get', table: 'tenants', rows: 1, tenantRef: tenant.id?.slice(0, 8), code: 200, detail: JSON.stringify({ slug: tenant.slug, is_active: tenant.is_active, has_tc: !!tenant.theme_config }) });
     return jsonResponse({ tenant });
   } catch {
     return jsonResponse({ message: 'Erro ao carregar perfil' }, 500);
