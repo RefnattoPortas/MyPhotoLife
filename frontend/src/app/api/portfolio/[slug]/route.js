@@ -51,30 +51,27 @@ export async function GET(_, { params }) {
   try {
     const { slug } = params;
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    safeLog({ operation: 'portfolio_get_start', code: 0, detail: `slug=${slug} url_ok=${!!process.env.NEXT_PUBLIC_SUPABASE_URL} key_ok=${!!process.env.SUPABASE_SERVICE_ROLE_KEY}` });
 
-    let tenant;
-    try {
-      const restUrl = `${supabaseUrl}/rest/v1/tenants?select=*&slug=eq.${encodeURIComponent(slug.toLowerCase())}&is_active=eq.true`;
-      const restRes = await fetch(restUrl, {
-        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-      });
-      const body = await restRes.text();
-      const tenants = JSON.parse(body);
-      tenant = Array.isArray(tenants) && tenants.length > 0 ? tenants[0] : null;
-      safeLog({ operation: 'portfolio_get_fetch', table: 'tenants', rows: 1, tenantRef: tenant?.id?.slice(0, 8) || 'none', code: restRes.status, detail: `slug=${slug} status=${restRes.status}` });
-    } catch (fetchErr) {
-      safeLog({ operation: 'portfolio_get_fetch', code: 500, detail: `FETCH_FAIL: ${fetchErr?.message || 'unknown'}` });
-      return jsonResponse({ error: true, code: 'DB_ERROR', message: 'Erro ao consultar banco de dados' }, 500);
+    const { data: tenantDb, error: tenantErr } = await supabaseAdmin
+      .from('tenants')
+      .select('*')
+      .eq('slug', slug.toLowerCase())
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (tenantErr) {
+      safeLog({ operation: 'portfolio_get', rows: 0, code: 500, detail: `TENANT_ERR: ${tenantErr.message}` });
     }
+
+    const tenant = tenantDb || null;
 
     if (!tenant) {
       safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 0, code: 404, detail: JSON.stringify({ slug }) });
       return jsonResponse({ error: true, code: 'NOT_FOUND', message: 'Portfólio não encontrado' }, 404);
     }
 
-    safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 1, tenantRef: tenant.id?.slice(0, 8), code: 200, detail: JSON.stringify({ slug, is_active: tenant.is_active, updated_at: tenant.updated_at }) });
+    safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 1, tenantRef: tenant.id?.slice(0, 8), code: 200, detail: JSON.stringify({ slug, is_active: tenant.is_active, updated_at: tenant.updated_at, has_tc: !!tenant.theme_config }) });
 
     const photographer = buildPublicPhotographer(tenant);
 
@@ -147,7 +144,7 @@ export async function GET(_, { params }) {
       photographer,
       albums: albumsWithMedia,
       schedule,
-      _debug: { updated_at: tenant.updated_at, bg: tenant.theme_config?.bg_color },
+      _debug: { updated_at: tenant.updated_at, bg: tenant.theme_config?.bg_color, env_ok: !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) },
     });
   } catch {
     return jsonResponse({ error: true, code: 'UNEXPECTED', message: 'Não foi possível carregar o portfólio' }, 500);
