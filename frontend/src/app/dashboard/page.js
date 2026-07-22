@@ -217,7 +217,7 @@ export default function DashboardPage() {
       } else if (msg.includes('400') || msg.includes('campos') || msg.includes('Revise')) {
         showToast('Revise os campos destacados.', 'error');
       } else {
-        showToast('Não foi possível salvar suas configurações. Tente novamente.', 'error');
+        showToast(msg || 'Não foi possível salvar suas configurações. Tente novamente.', 'error');
       }
       throw err;
     }
