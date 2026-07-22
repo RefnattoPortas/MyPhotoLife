@@ -85,17 +85,26 @@ export async function PATCH(request) {
 
     updates.updated_at = new Date().toISOString();
 
-    const { data: tenant, error } = await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from('tenants')
       .update(updates)
-      .eq('id', user.tenant_id)
-      .select()
-      .single();
+      .eq('id', user.tenant_id);
 
-    if (error) {
-      const msg = error.message || 'Erro no banco de dados';
-      safeLog({ operation: 'update', table: 'tenants', rows: 0, tenantRef: user.tenant_id?.slice(0, 8), code: error.code || 500, detail: msg });
+    if (updateError) {
+      const msg = updateError.message || 'Erro no banco de dados';
+      safeLog({ operation: 'update', table: 'tenants', rows: 0, tenantRef: user.tenant_id?.slice(0, 8), code: updateError.code || 500, detail: msg });
       return jsonResponse({ message: `Erro ao salvar: ${msg}` }, 500);
+    }
+
+    const { data: tenant, error: selectError } = await supabaseAdmin
+      .from('tenants')
+      .select('*')
+      .eq('id', user.tenant_id)
+      .maybeSingle();
+
+    if (selectError) {
+      safeLog({ operation: 'select', table: 'tenants', rows: 0, tenantRef: user.tenant_id?.slice(0, 8), code: selectError.code || 500, detail: selectError.message });
+      return jsonResponse({ message: 'Erro ao carregar perfil atualizado' }, 500);
     }
 
     if (!tenant) {
@@ -103,7 +112,16 @@ export async function PATCH(request) {
       return jsonResponse({ message: 'Perfil não encontrado.' }, 404);
     }
 
-    safeLog({ operation: 'update', table: 'tenants', rows: 1, tenantRef: user.tenant_id?.slice(0, 8), code: 200 });
+    const responseTc = tenant?.theme_config;
+    safeLog({
+      operation: 'update', table: 'tenants', rows: 1, tenantRef: user.tenant_id?.slice(0, 8), code: 200,
+      detail: JSON.stringify({
+        keys: Object.keys(updates),
+        requestTc: updates.theme_config,
+        responseTc,
+        tcMatch: JSON.stringify(updates.theme_config) === JSON.stringify(responseTc),
+      })
+    });
     return jsonResponse({ tenant, message: 'Configurações salvas com sucesso!' });
   } catch (err) {
     const msg = err?.message || 'Erro inesperado';
