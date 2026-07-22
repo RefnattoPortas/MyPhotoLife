@@ -53,7 +53,7 @@ export default function MasonryGrid({ items, onImageClick, columnCount: propCols
                 loading="lazy"
               />
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400 flex items-center justify-center">
                 <div className="w-9 h-9 bg-white/15 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 transform scale-75 group-hover:scale-100 transition-transform duration-300">
                   <Eye className="w-[18px] h-[18px] text-white" />
                 </div>
