@@ -61,15 +61,13 @@ export async function GET(_, { params }) {
     const restUrl = `${supabaseUrl}/rest/v1/tenants?select=*&slug=eq.${encodedSlug}&is_active=eq.true`;
     const restRes = await fetch(restUrl, {
       headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-      cache: 'no-store',
     });
     if (!restRes.ok) {
       const errText = await restRes.text().catch(() => 'unknown');
-      safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 0, code: restRes.status, detail: errText });
-      return jsonResponse({ error: true, code: 'DB_ERROR', message: 'Erro ao consultar portfólio' }, 500);
+      safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 0, code: restRes.status, detail: `FETCH_ERR ${restRes.status} ${errText}` });
     }
-    const tenants = await restRes.json();
-    const tenant = tenants?.[0] || null;
+    const tenants = await restRes.json().catch(() => null);
+    const tenant = Array.isArray(tenants) ? tenants[0] : null;
 
     if (!tenant) {
       safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 0, code: 404, detail: JSON.stringify({ slug }) });
