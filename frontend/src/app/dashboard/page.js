@@ -178,11 +178,48 @@ export default function DashboardPage() {
 
   const handleSaveProfile = async () => {
     try {
-      await api.tenant.update(configForm);
+      const result = await api.tenant.update(configForm);
+      if (result.tenant) {
+        setProfile(result.tenant);
+        const tc = result.tenant.theme_config || {};
+        setConfigForm({
+          name: result.tenant.name || '',
+          bio: result.tenant.bio || '',
+          headline: result.tenant.headline || '',
+          pix_key: result.tenant.pix_key || '',
+          pix_key_type: result.tenant.pix_key_type || 'random',
+          instagram: result.tenant.instagram || '',
+          twitter: result.tenant.twitter || '',
+          facebook: result.tenant.facebook || '',
+          linkedin: result.tenant.linkedin || '',
+          youtube: result.tenant.youtube || '',
+          tiktok: result.tenant.tiktok || '',
+          phone: result.tenant.phone || '',
+          whatsapp: result.tenant.whatsapp || '',
+          contact_email: result.tenant.contact_email || '',
+          theme_config: {
+            bg_color: tc.bg_color || '#fafaf9',
+            hover_color: tc.hover_color || '#1c1917',
+            text_color: tc.text_color || '#1c1917',
+            font: tc.font || 'Inter',
+            cover_url: tc.cover_url || '',
+            profile_photo_url: tc.profile_photo_url || '',
+          },
+        });
+      }
       showToast('Configurações salvas com sucesso!');
-      loadData();
     } catch (err) {
-      showToast(err.message || 'Erro ao salvar configurações', 'error');
+      const msg = err.message || '';
+      if (msg.includes('401') || msg.includes('sessão')) {
+        showToast('Sua sessão expirou. Entre novamente.', 'error');
+      } else if (msg.includes('409') || msg.includes('concorrência') || msg.includes('alterados')) {
+        showToast('Não foi possível salvar porque os dados foram alterados.', 'error');
+      } else if (msg.includes('400') || msg.includes('campos') || msg.includes('Revise')) {
+        showToast('Revise os campos destacados.', 'error');
+      } else {
+        showToast('Não foi possível salvar suas configurações. Tente novamente.', 'error');
+      }
+      throw err;
     }
   };
 

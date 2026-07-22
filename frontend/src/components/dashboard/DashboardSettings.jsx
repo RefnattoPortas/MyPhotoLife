@@ -138,7 +138,6 @@ export default function DashboardSettings({ configForm, setConfigForm, onSave })
       await onSave();
       setDirty(false);
     } catch {
-      showToast('Erro ao salvar configurações', 'error');
     } finally {
       setSaving(false);
     }
