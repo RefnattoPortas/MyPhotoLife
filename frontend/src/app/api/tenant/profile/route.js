@@ -7,7 +7,7 @@ const ALLOWED_FIELDS = [
   'youtube', 'tiktok', 'theme_config',
 ];
 
-function safeLog({ operation, table, rows, tenantRef, code }) {
+function safeLog({ operation, table, rows, tenantRef, code, detail }) {
   console.log(JSON.stringify({
     severity: code >= 500 ? 'error' : 'warn',
     operation,
@@ -15,6 +15,7 @@ function safeLog({ operation, table, rows, tenantRef, code }) {
     rows,
     tenantRef,
     code,
+    ...(detail ? { detail } : {}),
   }));
 }
 
@@ -65,15 +66,8 @@ export async function PATCH(request) {
       if (body[field] === undefined) continue;
 
       if (field === 'theme_config') {
-        const existing = body.theme_config;
-        if (existing && typeof existing === 'object' && !Array.isArray(existing)) {
-          const clean = {};
-          for (const k of ['template', 'bg_color', 'hover_color', 'text_color', 'font', 'cover_url', 'profile_photo_url']) {
-            if (existing[k] !== undefined) {
-              clean[k] = typeof existing[k] === 'string' ? existing[k].trim() || null : existing[k];
-            }
-          }
-          if (Object.keys(clean).length > 0) updates.theme_config = clean;
+        if (body.theme_config && typeof body.theme_config === 'object' && !Array.isArray(body.theme_config)) {
+          updates.theme_config = body.theme_config;
         }
         continue;
       }
@@ -99,8 +93,9 @@ export async function PATCH(request) {
       .single();
 
     if (error) {
-      safeLog({ operation: 'update', table: 'tenants', rows: 0, tenantRef: user.tenant_id?.slice(0, 8), code: error.code || 500 });
-      return jsonResponse({ message: 'Não foi possível salvar suas configurações. Tente novamente.' }, 500);
+      const msg = error.message || 'Erro no banco de dados';
+      safeLog({ operation: 'update', table: 'tenants', rows: 0, tenantRef: user.tenant_id?.slice(0, 8), code: error.code || 500, detail: msg });
+      return jsonResponse({ message: `Erro ao salvar: ${msg}` }, 500);
     }
 
     if (!tenant) {
@@ -111,7 +106,8 @@ export async function PATCH(request) {
     safeLog({ operation: 'update', table: 'tenants', rows: 1, tenantRef: user.tenant_id?.slice(0, 8), code: 200 });
     return jsonResponse({ tenant, message: 'Configurações salvas com sucesso!' });
   } catch (err) {
-    safeLog({ operation: 'update', table: 'tenants', rows: 0, tenantRef: user.tenant_id?.slice(0, 8), code: 'UNEXPECTED' });
-    return jsonResponse({ message: 'Não foi possível salvar suas configurações. Tente novamente.' }, 500);
+    const msg = err?.message || 'Erro inesperado';
+    safeLog({ operation: 'update', table: 'tenants', rows: 0, tenantRef: user.tenant_id?.slice(0, 8), code: 'UNEXPECTED', detail: msg });
+    return jsonResponse({ message: `Erro ao salvar: ${msg}` }, 500);
   }
 }
