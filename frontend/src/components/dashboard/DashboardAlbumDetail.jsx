@@ -59,7 +59,7 @@ export default function DashboardAlbumDetail({
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {media.map((m) => (
               <div key={m.id} className="group relative aspect-square rounded-xl overflow-hidden bg-zinc-100 border border-zinc-200">
-                <img src={m.thumbnail_path} alt={m.filename || 'Foto do álbum'} className="w-full h-full object-cover" />
+                <img src={m.thumbnail_path || m.optimized_path} alt={m.filename || 'Foto do álbum'} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                   {m.is_for_sale && (
                     <span className="text-white text-xs font-medium bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full">

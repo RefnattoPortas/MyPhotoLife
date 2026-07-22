@@ -47,7 +47,7 @@ export default function DashboardOverview({ stats, albums, orders, onOpenAlbum }
               >
                 <div className="w-10 h-10 rounded-lg bg-zinc-100 overflow-hidden flex-shrink-0">
                   {a.cover_thumbnail ? (
-                    <img src={a.cover_thumbnail} alt={a.title} className="w-full h-full object-cover" />
+                    <img src={a.cover_thumbnail} alt={a.title} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
                   ) : (
                     <ImageIcon className="w-5 h-5 text-zinc-300 m-auto mt-2.5" />
                   )}

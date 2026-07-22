@@ -292,19 +292,21 @@ export default function DashboardPage() {
           />
         ) : (
           <>
-            <DashboardOverview
-              stats={stats}
-              albums={albums}
-              orders={orders}
-              onOpenAlbum={openAlbum}
-            />
-
             <DashboardNav activeTab={tab} onTabChange={(t) => {
               setTab(t);
               const url = new URL(window.location.href);
               url.searchParams.set('tab', t);
               window.history.replaceState({}, '', url.toString());
             }} />
+
+            {tab === 'overview' && (
+              <DashboardOverview
+                stats={stats}
+                albums={albums}
+                orders={orders}
+                onOpenAlbum={openAlbum}
+              />
+            )}
 
             {tab === 'albums' && (
               <DashboardAlbums

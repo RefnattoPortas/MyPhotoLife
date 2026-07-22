@@ -1,6 +1,36 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { supabaseConfigured, jsonResponse } from '@/lib/api-auth';
 
+function buildPublicPhotographer(tenant) {
+  const p = {
+    name: tenant.name,
+    bio: tenant.bio || null,
+    headline: tenant.headline || null,
+  };
+
+  if (tenant.instagram) p.instagram = tenant.instagram;
+  if (tenant.twitter) p.twitter = tenant.twitter;
+  if (tenant.facebook) p.facebook = tenant.facebook;
+  if (tenant.linkedin) p.linkedin = tenant.linkedin;
+  if (tenant.youtube) p.youtube = tenant.youtube;
+  if (tenant.tiktok) p.tiktok = tenant.tiktok;
+
+  if (tenant.phone) p.phone = tenant.phone;
+  if (tenant.whatsapp) p.whatsapp = tenant.whatsapp;
+  if (tenant.contact_email) p.contact_email = tenant.contact_email;
+
+  p.theme = tenant.theme_config || {
+    bg_color: '#fafaf9',
+    hover_color: '#1c1917',
+    text_color: '#1c1917',
+    font: 'Inter',
+    cover_url: null,
+    profile_photo_url: null,
+  };
+
+  return p;
+}
+
 export async function GET(_, { params }) {
   if (!supabaseConfigured()) {
     return jsonResponse({ error: true, code: 'SERVICE_UNAVAILABLE', message: 'Serviço temporariamente indisponível.' }, 503);
@@ -20,40 +50,7 @@ export async function GET(_, { params }) {
       return jsonResponse({ error: true, code: 'NOT_FOUND', message: 'Portfólio não encontrado' }, 404);
     }
 
-    const { data: users } = await supabaseAdmin
-      .from('users')
-      .select('id, email, display_name, role')
-      .eq('tenant_id', tenant.id)
-      .eq('is_active', true)
-      .limit(1);
-
-    const photographer = {
-      id: tenant.id,
-      name: tenant.name,
-      email: tenant.email,
-      bio: tenant.bio || null,
-      headline: tenant.headline || null,
-      pix_key: tenant.pix_key || null,
-      pix_key_type: tenant.pix_key_type || 'random',
-      phone: tenant.phone || null,
-      whatsapp: tenant.whatsapp || null,
-      contact_email: tenant.contact_email || null,
-      instagram: tenant.instagram || null,
-      twitter: tenant.twitter || null,
-      facebook: tenant.facebook || null,
-      linkedin: tenant.linkedin || null,
-      youtube: tenant.youtube || null,
-      tiktok: tenant.tiktok || null,
-      email_contact: !!tenant.contact_email,
-      theme: tenant.theme_config || {
-        bg_color: '#fafaf9',
-        hover_color: '#1c1917',
-        text_color: '#1c1917',
-        font: 'Inter',
-        cover_url: null,
-        profile_photo_url: null,
-      },
-    };
+    const photographer = buildPublicPhotographer(tenant);
 
     const { data: albums, error: albumsError } = await supabaseAdmin
       .from('albums')
@@ -77,10 +74,10 @@ export async function GET(_, { params }) {
       if (album.cover_media_id) {
         const { data: coverMedia } = await supabaseAdmin
           .from('media_files')
-          .select('thumbnail_path, optimized_path')
+          .select('thumbnail_path')
           .eq('id', album.cover_media_id)
           .maybeSingle();
-        coverThumbnail = coverMedia?.thumbnail_path || coverMedia?.optimized_path || null;
+        coverThumbnail = coverMedia?.thumbnail_path || null;
       } else {
         const { data: firstMedia } = await supabaseAdmin
           .from('media_files')
@@ -93,7 +90,14 @@ export async function GET(_, { params }) {
       }
 
       return {
-        ...album,
+        id: album.id,
+        title: album.title,
+        description: album.description,
+        price: album.price,
+        is_public: album.is_public,
+        is_for_sale: album.is_for_sale,
+        display_order: album.display_order,
+        created_at: album.created_at,
         cover_thumbnail: coverThumbnail,
         media_count: count || 0,
       };
@@ -103,7 +107,7 @@ export async function GET(_, { params }) {
     try {
       const { data: s } = await supabaseAdmin
         .from('schedule')
-        .select('*')
+        .select('id, title, event_date, location, status')
         .eq('tenant_id', tenant.id)
         .gte('event_date', new Date().toISOString())
         .order('event_date', { ascending: true })
@@ -118,7 +122,7 @@ export async function GET(_, { params }) {
       albums: albumsWithMedia,
       schedule,
     });
-  } catch (err) {
+  } catch {
     return jsonResponse({ error: true, code: 'UNEXPECTED', message: 'Não foi possível carregar o portfólio' }, 500);
   }
 }

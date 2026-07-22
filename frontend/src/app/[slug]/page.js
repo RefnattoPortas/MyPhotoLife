@@ -119,7 +119,7 @@ function ContactTab({ photographer, api, slug }) {
         </div>
       )}
 
-      {photographer.email_contact && (
+      {photographer.contact_email && (
         <form onSubmit={handleEmailSubmit} className="bg-white p-8 md:p-10 rounded-3xl shadow-sm border border-stone-200 space-y-6">
           <div className="text-center">
             <h2 className="text-2xl font-bold tracking-tight">
@@ -429,7 +429,7 @@ export default function PortfolioPage({ params }) {
       <section className="relative overflow-hidden pt-12 pb-8 md:pt-16 md:pb-12">
         {photographer.theme?.cover_url ? (
           <div className="absolute inset-0">
-            <img src={photographer.theme.cover_url} alt="" className="w-full h-full object-cover" />
+            <img src={photographer.theme.cover_url} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-stone-50" />
           </div>
         ) : (
@@ -438,7 +438,7 @@ export default function PortfolioPage({ params }) {
         <div className="absolute inset-0 bg-[radial-gradient(#d6d3d1_1px,transparent_1px)] [background-size:20px_20px] opacity-40" />
         <div className="relative max-w-4xl mx-auto px-6 text-center">
           <div className="inline-flex items-center justify-center w-20 sm:w-24 h-20 sm:h-24 rounded-full bg-stone-100 border-4 border-white shadow-lg mb-6 overflow-hidden animate-fade-in">
-             <img src={photographer.theme?.profile_photo_url || "https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&w=200&auto=format&fit=crop"} className="w-full h-full object-cover" alt={photographer.name}/>
+             <img src={photographer.theme?.profile_photo_url || "https://images.unsplash.com/photo-1554151228-14d9def656e4?q=80&w=200&auto=format&fit=crop"} className="w-full h-full object-cover" alt={photographer.name} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.classList.add('bg-stone-200'); }}/>
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-stone-900 leading-[1.08] animate-fade-up">
             {photographer.name}
@@ -501,6 +501,7 @@ export default function PortfolioPage({ params }) {
                             src={album.cover_thumbnail}
                             alt={album.title}
                             className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
+                            onError={(e) => { e.target.style.display = 'none'; }}
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-stone-300">
@@ -681,7 +682,7 @@ export default function PortfolioPage({ params }) {
               {cart.map((item) => (
                 <div key={item.id} className="flex items-center gap-4 bg-stone-50 rounded-xl p-3 border border-stone-100 transition-colors">
                   <div className="w-14 h-14 rounded-lg overflow-hidden bg-stone-100 flex-shrink-0">
-                    <img src={item.thumbnail_path} alt="" className="w-full h-full object-cover" />
+                    <img src={item.thumbnail_path} alt="" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-stone-800 truncate">{item.filename || 'Foto'}</p>

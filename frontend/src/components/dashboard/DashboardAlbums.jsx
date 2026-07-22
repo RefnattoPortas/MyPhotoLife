@@ -24,9 +24,9 @@ export default function DashboardAlbums({ albums, onOpenAlbum, onCreateAlbum, on
             className="bg-white rounded-2xl border border-zinc-200 overflow-hidden hover:border-zinc-300 hover:shadow-sm transition-all cursor-pointer group"
           >
             <div className="aspect-[4/3] bg-zinc-100 relative">
-              {album.cover_thumbnail ? (
-                <img src={album.cover_thumbnail} alt={album.title} className="w-full h-full object-cover" />
-              ) : (
+                  {album.cover_thumbnail ? (
+                    <img src={album.cover_thumbnail} alt={album.title} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                  ) : (
                 <div className="w-full h-full flex items-center justify-center text-zinc-300">
                   <ImageIcon className="w-8 h-8" />
                 </div>
