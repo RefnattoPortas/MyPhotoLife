@@ -53,21 +53,21 @@ export async function GET(_, { params }) {
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-    if (!supabaseUrl || !serviceKey) {
-      return jsonResponse({ error: true, code: 'SERVICE_UNAVAILABLE', message: 'Serviço temporariamente indisponível.' }, 503);
-    }
 
-    const encodedSlug = encodeURIComponent(slug.toLowerCase());
-    const restUrl = `${supabaseUrl}/rest/v1/tenants?select=*&slug=eq.${encodedSlug}&is_active=eq.true`;
-    const restRes = await fetch(restUrl, {
-      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-    });
-    if (!restRes.ok) {
-      const errText = await restRes.text().catch(() => 'unknown');
-      safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 0, code: restRes.status, detail: `FETCH_ERR ${restRes.status} ${errText}` });
+    let tenant;
+    try {
+      const restUrl = `${supabaseUrl}/rest/v1/tenants?select=*&slug=eq.${encodeURIComponent(slug.toLowerCase())}&is_active=eq.true`;
+      const restRes = await fetch(restUrl, {
+        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+      });
+      const body = await restRes.text();
+      const tenants = JSON.parse(body);
+      tenant = Array.isArray(tenants) && tenants.length > 0 ? tenants[0] : null;
+      safeLog({ operation: 'portfolio_get_fetch', table: 'tenants', rows: 1, tenantRef: tenant?.id?.slice(0, 8) || 'none', code: restRes.status, detail: `slug=${slug} status=${restRes.status}` });
+    } catch (fetchErr) {
+      safeLog({ operation: 'portfolio_get_fetch', code: 500, detail: `FETCH_FAIL: ${fetchErr?.message || 'unknown'}` });
+      return jsonResponse({ error: true, code: 'DB_ERROR', message: 'Erro ao consultar banco de dados' }, 500);
     }
-    const tenants = await restRes.json().catch(() => null);
-    const tenant = Array.isArray(tenants) ? tenants[0] : null;
 
     if (!tenant) {
       safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 0, code: 404, detail: JSON.stringify({ slug }) });
