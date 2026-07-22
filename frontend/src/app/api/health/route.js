@@ -46,8 +46,10 @@ export async function GET() {
       );
     }
 
+    const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const maskedUrl = rawUrl.length > 30 ? rawUrl.substring(0, 30) + '...' : rawUrl || 'NOT_SET';
     return Response.json(
-      { status: 'ok', timestamp: new Date().toISOString() },
+      { status: 'ok', timestamp: new Date().toISOString(), db: maskedUrl },
       {
         status: 200,
         headers: {
