@@ -1,3 +1,4 @@
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { supabaseConfigured, jsonResponse } from '@/lib/api-auth';
 
 function safeLog({ operation, table, rows, tenantRef, code, detail }) {
@@ -79,45 +80,41 @@ export async function GET(_, { params }) {
 
     const photographer = buildPublicPhotographer(tenant);
 
-    // Albums
-    const albumUrl = `${supabaseUrl}/rest/v1/albums?select=id,title,description,cover_media_id,price,is_public,is_for_sale,display_order,created_at&tenant_id=eq.${encodeURIComponent(tenant.id)}&is_public=eq.true&order=display_order.asc,created_at.desc`;
-    const albumsRes = await fetch(albumUrl, {
-      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-      cache: 'no-store',
-    });
-    if (!albumsRes.ok) {
-      return jsonResponse({ error: true, code: 'FETCH_ERROR', message: 'Erro ao carregar álbuns' }, 500);
-    }
-    const albums = await albumsRes.json();
-    if (!Array.isArray(albums)) {
+    const { data: albums, error: albumsError } = await supabaseAdmin
+      .from('albums')
+      .select('id, title, description, cover_media_id, price, is_public, is_for_sale, display_order, created_at')
+      .eq('tenant_id', tenant.id)
+      .eq('is_public', true)
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (albumsError) {
       return jsonResponse({ error: true, code: 'FETCH_ERROR', message: 'Erro ao carregar álbuns' }, 500);
     }
 
-    const albumsWithMedia = await Promise.all((albums).map(async (album) => {
-      const countUrl = `${supabaseUrl}/rest/v1/media_files?select=id&album_id=eq.${encodeURIComponent(album.id)}&limit=0`;
-      const countRes = await fetch(countUrl, {
-        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, Prefer: 'count=exact' },
-        cache: 'no-store',
-      });
-      const count = parseInt(countRes.headers.get('content-range')?.split('/')[1] || '0', 10);
+    const albumsWithMedia = await Promise.all((albums || []).map(async (album) => {
+      const { count } = await supabaseAdmin
+        .from('media_files')
+        .select('id', { count: 'exact', head: true })
+        .eq('album_id', album.id);
 
       let coverThumbnail = null;
       if (album.cover_media_id) {
-        const coverUrl = `${supabaseUrl}/rest/v1/media_files?select=thumbnail_path&id=eq.${encodeURIComponent(album.cover_media_id)}&limit=1`;
-        const coverRes = await fetch(coverUrl, {
-          headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-          cache: 'no-store',
-        });
-        const coverMedia = await coverRes.json();
-        coverThumbnail = coverMedia?.[0]?.thumbnail_path || null;
+        const { data: coverMedia } = await supabaseAdmin
+          .from('media_files')
+          .select('thumbnail_path')
+          .eq('id', album.cover_media_id)
+          .maybeSingle();
+        coverThumbnail = coverMedia?.thumbnail_path || null;
       } else {
-        const firstUrl = `${supabaseUrl}/rest/v1/media_files?select=thumbnail_path&album_id=eq.${encodeURIComponent(album.id)}&order=display_order.asc&limit=1`;
-        const firstRes = await fetch(firstUrl, {
-          headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-          cache: 'no-store',
-        });
-        const firstMedia = await firstRes.json();
-        coverThumbnail = firstMedia?.[0]?.thumbnail_path || null;
+        const { data: firstMedia } = await supabaseAdmin
+          .from('media_files')
+          .select('thumbnail_path')
+          .eq('album_id', album.id)
+          .order('display_order', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        coverThumbnail = firstMedia?.thumbnail_path || null;
       }
 
       return {
@@ -136,13 +133,14 @@ export async function GET(_, { params }) {
 
     let schedule = [];
     try {
-      const schedUrl = `${supabaseUrl}/rest/v1/schedule?select=id,title,event_date,location,status&tenant_id=eq.${encodeURIComponent(tenant.id)}&event_date=gte.${new Date().toISOString()}&order=event_date.asc&limit=50`;
-      const schedRes = await fetch(schedUrl, {
-        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-        cache: 'no-store',
-      });
-      schedule = await schedRes.json();
-      if (!Array.isArray(schedule)) schedule = [];
+      const { data: s } = await supabaseAdmin
+        .from('schedule')
+        .select('id, title, event_date, location, status')
+        .eq('tenant_id', tenant.id)
+        .gte('event_date', new Date().toISOString())
+        .order('event_date', { ascending: true })
+        .limit(50);
+      schedule = s || [];
     } catch {
       schedule = [];
     }
