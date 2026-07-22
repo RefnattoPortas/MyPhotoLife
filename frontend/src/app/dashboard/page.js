@@ -27,7 +27,13 @@ export default function DashboardPage() {
   const [schedule, setSchedule] = useState([]);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('tab');
+      if (p && ['overview','albums','schedule','orders','settings'].includes(p)) return p;
+    }
+    return 'overview';
+  });
   const loadingRef = useRef(false);
 
   const [albumModal, setAlbumModal] = useState({ open: false, mode: 'create', album: null });
@@ -73,10 +79,10 @@ export default function DashboardPage() {
 
       const s = statsData.stats || {};
       setStats({
-        albumCount: s.albumCount ?? 0,
-        mediaCount: s.mediaCount ?? 0,
-        orderCount: s.orderCount ?? 0,
-        revenue: s.revenue ?? 0,
+        albumCount: s.total_albums ?? s.albumCount ?? 0,
+        mediaCount: s.total_media ?? s.mediaCount ?? 0,
+        orderCount: s.total_orders ?? s.orderCount ?? 0,
+        revenue: s.total_revenue ?? s.revenue ?? 0,
       });
       setAlbums(albumsData.albums || []);
       setOrders(ordersData.orders || []);
@@ -293,7 +299,12 @@ export default function DashboardPage() {
               onOpenAlbum={openAlbum}
             />
 
-            <DashboardNav activeTab={tab} onTabChange={setTab} />
+            <DashboardNav activeTab={tab} onTabChange={(t) => {
+              setTab(t);
+              const url = new URL(window.location.href);
+              url.searchParams.set('tab', t);
+              window.history.replaceState({}, '', url.toString());
+            }} />
 
             {tab === 'albums' && (
               <DashboardAlbums

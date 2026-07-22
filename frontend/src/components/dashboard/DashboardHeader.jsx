@@ -12,7 +12,7 @@ export default function DashboardHeader({ tenant, selectedAlbum, onBack, onLogou
               <ArrowLeft className="w-5 h-5" />
             </button>
           ) : null}
-          <span className="text-lg font-bold tracking-tight">MyImagesLife</span>
+          <span className="text-lg font-bold tracking-tight">MyPhotoLife</span>
           <span className="text-sm text-zinc-400">/</span>
           <span className="text-sm text-zinc-600">{tenant?.name}</span>
         </div>
