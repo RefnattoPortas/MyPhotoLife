@@ -51,27 +51,19 @@ export async function GET(_, { params }) {
   try {
     const { slug } = params;
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    const { data: tenantDb, error: tenantErr } = await supabaseAdmin
+      .from('tenants')
+      .select('*')
+      .eq('slug', slug.toLowerCase())
+      .eq('is_active', true)
+      .maybeSingle();
 
-    let tenant;
-    try {
-      const restUrl = `${supabaseUrl}/rest/v1/tenants?select=*&slug=eq.${encodeURIComponent(slug.toLowerCase())}&is_active=eq.true`;
-      const restRes = await fetch(restUrl, {
-        headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-      });
-      if (!restRes.ok) {
-        const errText = await restRes.text().catch(() => 'unknown');
-        safeLog({ operation: 'portfolio_get_fetch', code: restRes.status, detail: `FETCH_ERR ${restRes.status} ${errText}` });
-        return jsonResponse({ error: true, code: 'DB_ERROR', message: 'Erro ao consultar banco de dados' }, 500);
-      }
-      const tenants = await restRes.json();
-      tenant = Array.isArray(tenants) && tenants.length > 0 ? tenants[0] : null;
-      safeLog({ operation: 'portfolio_get_fetch', table: 'tenants', rows: tenant ? 1 : 0, tenantRef: tenant?.id?.slice(0, 8) || 'none', code: restRes.status });
-    } catch (fetchErr) {
-      safeLog({ operation: 'portfolio_get_fetch', code: 500, detail: `FETCH_EXCEPTION: ${fetchErr?.message || 'unknown'}` });
+    if (tenantErr) {
+      safeLog({ operation: 'portfolio_get', rows: 0, code: 500, detail: `TENANT_ERR: ${tenantErr.message}` });
       return jsonResponse({ error: true, code: 'DB_ERROR', message: 'Erro ao consultar banco de dados' }, 500);
     }
+
+    const tenant = tenantDb || null;
 
     if (!tenant) {
       safeLog({ operation: 'portfolio_get', table: 'tenants', rows: 0, code: 404, detail: JSON.stringify({ slug }) });
