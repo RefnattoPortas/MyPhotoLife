@@ -136,6 +136,7 @@ export async function GET(_, { params }) {
       photographer,
       albums: albumsWithMedia,
       schedule,
+      _debug: { updated_at: tenant.updated_at, bg: tenant.theme_config?.bg_color },
     });
   } catch {
     return jsonResponse({ error: true, code: 'UNEXPECTED', message: 'Não foi possível carregar o portfólio' }, 500);
